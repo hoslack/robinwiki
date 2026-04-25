@@ -33,7 +33,7 @@ import {
 } from '@robin/shared'
 import type { PeopleExtractionOutput } from '@robin/shared'
 import type { BullMQProducer, ExtractionJob } from '@robin/queue'
-import { resolveEntrySlug, resolveWikiSlug } from '../db/slug.js'
+import { resolveEntrySlug, resolveFragmentSlug, resolveWikiSlug } from '../db/slug.js'
 import { computeContentHash, findDuplicateEntry, findDuplicateFragment } from '../db/dedup.js'
 import type { DB } from '../db/client.js'
 import {
@@ -282,11 +282,15 @@ export async function handleLogFragment(
       log.warn({ err, userId }, 'log_fragment entity extraction failed (continuing)')
     }
 
-    // Generate fragment identifiers
+    // Generate fragment identifiers. The slug must survive a collision
+    // when two fragments share the same first-80-char title prefix
+    // (which is common for incremental edits to the same thought):
+    // resolveFragmentSlug appends -2/-3/... on conflict instead of
+    // relying on a 6-char ULID-prefix suffix that is only unique within
+    // a millisecond.
     const fragKey = makeLookupKey('frag')
-    const { ulid: fragUlid } = parseLookupKey(fragKey)
     const title = input.title?.trim() || trimmed.slice(0, 80)
-    const fragSlug = `${generateSlug(title)}-${fragUlid.slice(0, 6).toLowerCase()}`
+    const fragSlug = await resolveFragmentSlug(deps.db, generateSlug(title))
     const now = new Date()
 
     // Insert fragment row
