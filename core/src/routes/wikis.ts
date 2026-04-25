@@ -423,6 +423,26 @@ wikisRouter.put('/:id', zValidator('json', updateWikiBodySchema, validationHook)
   const [existing] = await db.select().from(wikis).where(eq(wikis.lookupKey, id))
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  // Validate type against the wiki_types registry. The column is
+  // user-extensible (single-tenant table), so a runtime lookup replaces
+  // any static enum validation — same approach as MCP create_wiki.
+  if (body.type != null) {
+    const [typeRow] = await db
+      .select({ slug: wikiTypes.slug })
+      .from(wikiTypes)
+      .where(eq(wikiTypes.slug, body.type))
+      .limit(1)
+    if (!typeRow) {
+      return c.json(
+        {
+          error: 'Validation failed',
+          fields: { fieldErrors: { type: [`unknown wiki type "${body.type}"`] } },
+        },
+        400
+      )
+    }
+  }
+
   const updates: Record<string, unknown> = { updatedAt: new Date() }
   if (body.name != null) {
     updates.name = body.name
