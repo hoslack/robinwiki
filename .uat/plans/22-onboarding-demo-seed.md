@@ -265,13 +265,13 @@ fi
 
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-npx agent-browser click 'button[type="submit"]' 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+npx agent-browser click 'button[type="submit"]'
 npx agent-browser wait --load networkidle
 
 # 5a. Explorer shows the Transformer wiki.
-npx agent-browser open "$WIKI_URL/wiki" 2>/dev/null
+npx agent-browser open "$WIKI_URL/" 2>/dev/null
 npx agent-browser wait --load networkidle
 EXPLORE_SNAP=$(npx agent-browser snapshot 2>/dev/null)
 npx agent-browser screenshot /tmp/uat-22-05-explorer.png 2>/dev/null
@@ -289,7 +289,7 @@ DETAIL_SNAP=$(npx agent-browser snapshot 2>/dev/null)
 DETAIL_URL=$(npx agent-browser get url 2>/dev/null || echo "")
 npx agent-browser screenshot /tmp/uat-22-05-detail.png 2>/dev/null
 
-if echo "$DETAIL_URL" | grep -q "/wiki/" && echo "$DETAIL_SNAP" | grep -qi "Overview"; then
+if echo "$DETAIL_URL" | grep -qE "/(transformer-architecture|wiki[A-Z0-9]+)" && echo "$DETAIL_SNAP" | grep -qi "Overview"; then
   pass "5b. Clicking the Transformer card lands on the detail page with rendered body"
 else
   fail "5b. Transformer card click did not land on detail page (URL: $DETAIL_URL)"
