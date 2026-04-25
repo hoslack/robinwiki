@@ -276,9 +276,9 @@ fi
 
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-npx agent-browser click 'button[type="submit"]' 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+npx agent-browser click 'button[type="submit"]'
 npx agent-browser wait --load networkidle
 
 npx agent-browser open "$WIKI_URL/wiki/$WIKI_KEY" 2>/dev/null
@@ -367,9 +367,9 @@ fi
 # Re-sign-in for the rest of the suite.
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-npx agent-browser click 'button[type="submit"]' 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+npx agent-browser click 'button[type="submit"]'
 npx agent-browser wait --load networkidle
 
 # ── 5. Frontend — settings modal description prefill + save ──
@@ -541,18 +541,18 @@ fi
 # PR also wires the manifest + regenerated frontend SDK. Confirm both.
 
 # 8a. Live OpenAPI doc exposes the route.
-APIDOC=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$SERVER_URL/apidoc")
+APIDOC=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$SERVER_URL/openapi.json")
 if echo "$APIDOC" | jq -e '.paths["/wikis/{id}/history"].get.operationId == "getWikiEditHistory"' >/dev/null 2>&1; then
-  pass "8a. /apidoc registers GET /wikis/{id}/history with operationId getWikiEditHistory"
+  pass "8a. /openapi.json registers GET /wikis/{id}/history with operationId getWikiEditHistory"
 else
-  fail "8a. /apidoc missing /wikis/{id}/history or wrong operationId"
+  fail "8a. /openapi.json missing /wikis/{id}/history or wrong operationId"
 fi
 
 # 8b. editHistoryResponseSchema is defined in components.schemas.
 if echo "$APIDOC" | jq -e '.components.schemas.editHistoryResponseSchema.properties.edits' >/dev/null 2>&1; then
-  pass "8b. /apidoc exposes editHistoryResponseSchema component"
+  pass "8b. /openapi.json exposes editHistoryResponseSchema component"
 else
-  fail "8b. /apidoc missing editHistoryResponseSchema component"
+  fail "8b. /openapi.json missing editHistoryResponseSchema component"
 fi
 
 # 8c. Frontend generated SDK exports getWikiEditHistory (regen check).
