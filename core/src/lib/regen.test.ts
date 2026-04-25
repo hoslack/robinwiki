@@ -128,13 +128,17 @@ vi.mock('../db/client.js', () => {
 vi.mock('../db/schema.js', () => ({
   wikis: {
     lookupKey: 'wikis.lookupKey',
+    name: 'wikis.name',
     type: 'wikis.type',
     prompt: 'wikis.prompt',
+    description: 'wikis.description',
     slug: 'wikis.slug',
     state: 'wikis.state',
     content: 'wikis.content',
     metadata: 'wikis.metadata',
     citationDeclarations: 'wikis.citationDeclarations',
+    embedding: 'wikis.embedding',
+    searchVector: 'wikis.searchVector',
     updatedAt: 'wikis.updatedAt',
     deletedAt: 'wikis.deletedAt',
   },
@@ -147,6 +151,7 @@ vi.mock('../db/schema.js', () => ({
     srcId: 'edges.srcId',
     dstId: 'edges.dstId',
     edgeType: 'edges.edgeType',
+    attrs: 'edges.attrs',
     deletedAt: 'edges.deletedAt',
   },
   fragments: {
@@ -154,6 +159,8 @@ vi.mock('../db/schema.js', () => ({
     slug: 'fragments.slug',
     title: 'fragments.title',
     content: 'fragments.content',
+    embedding: 'fragments.embedding',
+    searchVector: 'fragments.searchVector',
     createdAt: 'fragments.createdAt',
     deletedAt: 'fragments.deletedAt',
   },
@@ -164,11 +171,20 @@ vi.mock('../db/schema.js', () => ({
     timestamp: 'edits.timestamp',
     content: 'edits.content',
   },
+  people: {
+    lookupKey: 'people.lookupKey',
+    name: 'people.name',
+    content: 'people.content',
+    embedding: 'people.embedding',
+    searchVector: 'people.searchVector',
+    deletedAt: 'people.deletedAt',
+  },
 }))
 
 // ── Import under test (after mocks) ───────────────────────────────────────
 
 const { regenerateWiki } = await import('./regen.js')
+const { db: mockDb } = await import('../db/client.js')
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -221,7 +237,7 @@ describe('regenerateWiki — override hierarchy integration', () => {
       [],           // 4. wikiTypes select → no userModified row
     ])
 
-    const result = await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    const result = await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(result).toBeDefined()
     expect(llmCalls).toHaveLength(1)
@@ -241,7 +257,7 @@ describe('regenerateWiki — override hierarchy integration', () => {
       // wikiTypes select is NEVER reached because wiki.prompt short-circuits.
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(llmCalls).toHaveLength(1)
     // System message APPENDS: Quill base stays, pirate text follows after a blank-line.
@@ -288,7 +304,7 @@ input_variables:
       [{ prompt: customYaml }],  // 4. wikiTypes select → userModified row
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(llmCalls).toHaveLength(1)
     // Custom YAML fully drives system + template.
@@ -311,7 +327,7 @@ input_variables:
     ])
 
     await expect(
-      regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+      regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
     ).resolves.toBeDefined()
 
     expect(llmCalls).toHaveLength(1)
@@ -339,7 +355,7 @@ temperature: 0.3
     ])
 
     await expect(
-      regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+      regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
     ).resolves.toBeDefined()
 
     expect(llmCalls).toHaveLength(1)
@@ -353,7 +369,7 @@ temperature: 0.3
       [],
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(llmCalls).toHaveLength(1)
     // Base system_message (Quill) is preserved; pirate voice appended cleanly without trailing newlines.
@@ -371,7 +387,7 @@ temperature: 0.3
       [], // wikiTypes select reached because whitespace-only prompt was ignored
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(llmCalls).toHaveLength(1)
     // Whitespace was NOT used as the system message — disk default kicked in.
@@ -419,7 +435,7 @@ describe('regenerateWiki — sidecar persistence', () => {
       [],           // 4. wikiTypes select → no userModified row
     ])
 
-    const result = await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    const result = await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     expect(result.content).toBe(llmResponse.markdown)
 
@@ -448,7 +464,7 @@ describe('regenerateWiki — sidecar persistence', () => {
       [],           // 4. wikiTypes select
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     // dbUpdates[0] is the LINKING guard; [1] is the content update
     const contentUpdate = dbUpdates[1]
@@ -479,7 +495,7 @@ describe('regenerateWiki — sidecar persistence', () => {
       [],
     ])
 
-    await regenerateWiki(undefined, 'wiki-key-1', { skipEmbedding: true })
+    await regenerateWiki(mockDb, 'wiki-key-1', { skipEmbedding: true })
 
     // dbUpdates[0] is the LINKING guard; [1] is the content update
     const contentUpdate = dbUpdates[1]
