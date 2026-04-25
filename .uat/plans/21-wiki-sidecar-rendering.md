@@ -71,13 +71,13 @@ HAS_INFOBOX=$(echo "$WIKI_JSON" | jq 'has("infobox") and .infobox != null' 2>/de
 # ── Sign in via browser ──────────────────────────────────────
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-npx agent-browser click 'button[type="submit"]' 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+npx agent-browser click 'button[type="submit"]'
 npx agent-browser wait --load networkidle
 
 # ── 1. Navigate to the Transformer wiki detail page ──────────
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 SNAP=$(npx agent-browser snapshot 2>/dev/null)
 npx agent-browser screenshot /tmp/uat-21-01-wiki-loaded.png 2>/dev/null
@@ -223,14 +223,14 @@ else
   fail "5c. Overview citation quote not found — tooltip would be empty"
 fi
 
-# 5d. Clicking a citation superscript navigates to /wiki/fragments/<id>
+# 5d. Clicking a citation superscript navigates to /fragments/<id>
 # Grab the first citation's anchor href.
 FRAG_HREF=$(grep -oE '<sup[^>]*class="[^"]*\bcite\b[^>]*>[^<]*<a[^>]*href="[^"]*"' /tmp/uat-21-dom.html \
   | head -1 | grep -oE 'href="[^"]+"' | sed 's/href="//;s/"$//')
-if [ -n "${FRAG_HREF:-}" ] && echo "$FRAG_HREF" | grep -q "/wiki/fragments/"; then
-  pass "5d. Citation link points at /wiki/fragments/<id> ($FRAG_HREF)"
+if [ -n "${FRAG_HREF:-}" ] && echo "$FRAG_HREF" | grep -q "/fragments/"; then
+  pass "5d. Citation link points at /fragments/<id> ($FRAG_HREF)"
 elif [ -n "${FRAG_HREF:-}" ]; then
-  fail "5d. Citation link exists but doesn't route to /wiki/fragments/ (got: $FRAG_HREF)"
+  fail "5d. Citation link exists but doesn't route to /fragments/ (got: $FRAG_HREF)"
 else
   skip "5d. Citation link shape varies by design — inspect /tmp/uat-21-dom.html manually"
 fi
@@ -260,7 +260,7 @@ fi
 
 # 6b. Click the first [edit] bracket — dialog opens prefilled with body,
 # heading read-only.
-npx agent-browser click 'a.wedit' 2>/dev/null
+npx agent-browser click 'a.wedit'
 npx agent-browser wait --load networkidle
 EDIT_SNAP=$(npx agent-browser snapshot 2>/dev/null)
 npx agent-browser screenshot /tmp/uat-21-06-edit-dialog.png 2>/dev/null
@@ -273,7 +273,7 @@ fi
 
 # 6c. Edit the body, save. Use a distinctive marker so we can verify.
 EDIT_MARKER="UAT-21 scoped edit marker $(date +%s)"
-npx agent-browser fill 'textarea' "$EDIT_MARKER" 2>/dev/null
+npx agent-browser fill 'textarea' "$EDIT_MARKER"
 npx agent-browser find text "Save" click 2>/dev/null
 npx agent-browser wait --load networkidle
 sleep 2
@@ -316,7 +316,7 @@ ARCH_CITE_COUNT=$(echo "$AFTER_JSON" | jq '[.sections[] | select(.anchor == "arc
 
 # ── 7. Section-scoped edit — H1 excluded ─────────────────────
 # H1 is the document title. No [edit] bracket should sit next to it.
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 npx agent-browser eval "document.documentElement.outerHTML" > /tmp/uat-21-dom-2.html 2>/dev/null
 
@@ -348,7 +348,7 @@ npx agent-browser eval "document.querySelector('#notes-1 a.wedit, [id=\"notes-1\
 npx agent-browser wait --load networkidle
 
 NOTES1_MARKER="UAT-21 notes-1 marker $(date +%s)"
-npx agent-browser fill 'textarea' "$NOTES1_MARKER" 2>/dev/null
+npx agent-browser fill 'textarea' "$NOTES1_MARKER"
 npx agent-browser find text "Save" click 2>/dev/null
 npx agent-browser wait --load networkidle
 sleep 2
@@ -377,7 +377,7 @@ fi
 # than a crash or silent clobber.
 
 # 9a. Open editor on 'architecture'.
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 npx agent-browser eval "document.querySelector('#architecture ~ * a.wedit, #architecture a.wedit, [id=\"architecture\"] a.wedit')?.click()" 2>/dev/null
 npx agent-browser wait --load networkidle
@@ -393,7 +393,7 @@ curl -s -o /dev/null -b "$COOKIE_JAR" -X PUT \
 
 # 9c. Save from the first tab — the section it was editing ('architecture')
 # no longer exists.
-npx agent-browser fill 'textarea' "UAT stale-section attempt" 2>/dev/null
+npx agent-browser fill 'textarea' "UAT stale-section attempt"
 npx agent-browser find text "Save" click 2>/dev/null
 npx agent-browser wait --load networkidle
 STALE_SNAP=$(npx agent-browser snapshot 2>/dev/null)
@@ -422,7 +422,7 @@ curl -s -o /dev/null -b "$COOKIE_JAR" -X PUT \
   -d "$(jq -n --arg body "$HTML_BODY" --arg name "Transformer Architecture" '{frontmatter:{name:$name,type:"project",prompt:""},body:$body}')" \
   "$SERVER_URL/api/content/wiki/$TRANSFORMER_KEY"
 
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 sleep 1
 npx agent-browser eval "document.documentElement.outerHTML" > /tmp/uat-21-dom-html-body.html 2>/dev/null
@@ -458,7 +458,7 @@ curl -s -o /dev/null -b "$COOKIE_JAR" -X PUT \
   -d "$(jq -n --arg body "$CODE_BODY" --arg name "Transformer Architecture" '{frontmatter:{name:$name,type:"project",prompt:""},body:$body}')" \
   "$SERVER_URL/api/content/wiki/$TRANSFORMER_KEY"
 
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 sleep 1
 npx agent-browser eval "document.documentElement.outerHTML" > /tmp/uat-21-codefence.html 2>/dev/null
@@ -511,12 +511,12 @@ ENTRY_KEY=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$SERVER
 if [ -n "${ENTRY_KEY:-}" ] && [ "$ENTRY_KEY" != "null" ]; then
   npx agent-browser open "$WIKI_URL/login" 2>/dev/null
   npx agent-browser wait --load networkidle
-  npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-  npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-  npx agent-browser click 'button[type="submit"]' 2>/dev/null
+  npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+  npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+  npx agent-browser click 'button[type="submit"]'
   npx agent-browser wait --load networkidle
 
-  npx agent-browser open "$WIKI_URL/wiki/entries/$ENTRY_KEY" 2>/dev/null
+  npx agent-browser open "$WIKI_URL/entries/$ENTRY_KEY"
   npx agent-browser wait --load networkidle
   npx agent-browser eval "document.documentElement.outerHTML" > /tmp/uat-21-entry-dom.html 2>/dev/null
   ENTRY_SNAP=$(npx agent-browser snapshot 2>/dev/null)
@@ -543,7 +543,7 @@ PERSON_KEY=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" "$SERVE
   | jq -r '.people[] | select(.slug == "ashish-vaswani") | .lookupKey // .id' | head -1)
 
 if [ -n "${PERSON_KEY:-}" ] && [ "$PERSON_KEY" != "null" ]; then
-  npx agent-browser open "$WIKI_URL/wiki/people/$PERSON_KEY" 2>/dev/null
+  npx agent-browser open "$WIKI_URL/people/$PERSON_KEY"
   npx agent-browser wait --load networkidle
   PERSON_SNAP=$(npx agent-browser snapshot 2>/dev/null)
   npx agent-browser eval "document.documentElement.outerHTML" > /tmp/uat-21-person-dom.html 2>/dev/null
@@ -611,7 +611,7 @@ curl -s -o /dev/null -b "$COOKIE_JAR" -X PUT \
   -d "$(jq -n --arg body "$INTRO_BODY" --arg name "Transformer Architecture" '{frontmatter:{name:$name,type:"project",prompt:""},body:$body}')" \
   "$SERVER_URL/api/content/wiki/$TRANSFORMER_KEY"
 
-npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY" 2>/dev/null
+npx agent-browser open "$WIKI_URL/wiki/$TRANSFORMER_KEY"
 npx agent-browser wait --load networkidle
 sleep 1
 INTRO_SNAP=$(npx agent-browser snapshot 2>/dev/null)
