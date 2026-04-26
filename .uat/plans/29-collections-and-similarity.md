@@ -70,8 +70,8 @@ UAT_TAG="uat29-$(date +%s)"
 
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
 npx agent-browser click 'button[type="submit"]' 2>/dev/null
 npx agent-browser wait --load networkidle
 

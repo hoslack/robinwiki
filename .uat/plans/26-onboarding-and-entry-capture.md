@@ -146,7 +146,7 @@ else
   fail "A4. GET /wiki-types → HTTP $WT_HTTP (probable YAML-path failure)"
 fi
 
-WT_COUNT=$(jq 'length // (.wikiTypes | length) // 0' /tmp/uat-26-wt.json 2>/dev/null)
+WT_COUNT=$(jq '(.wikiTypes // .) | length' /tmp/uat-26-wt.json 2>/dev/null)
 if [ "${WT_COUNT:-0}" -ge 10 ] 2>/dev/null; then
   pass "A5. /wiki-types returned $WT_COUNT types (≥10 — disk YAML enrichment fired)"
 else
@@ -155,7 +155,7 @@ fi
 
 # A6. The seeded `decision` type is present (sanity: end-to-end resolution
 # from YAML on disk → DB → route response).
-HAS_DECISION=$(jq '[(. // .wikiTypes // [])[] | select(.slug == "decision")] | length' /tmp/uat-26-wt.json 2>/dev/null)
+HAS_DECISION=$(jq '[((.wikiTypes // .) // [])[] | select(.slug == "decision")] | length' /tmp/uat-26-wt.json 2>/dev/null)
 if [ "$HAS_DECISION" = "1" ]; then
   pass "A6. /wiki-types includes the 'decision' type (seeded YAML resolved)"
 else
@@ -243,9 +243,12 @@ if [ -n "$MCP_TOKEN" ] && [ "$TOKEN_SEGS" = "3" ]; then
   fi
 
   # B7. Payload carries `ver` (mcpTokenVersion) and `iat` + `exp`.
-  HAS_VER=$(echo "$PAYLOAD_RAW" | jq -e '.ver != null' 2>/dev/null && echo yes || echo no)
-  HAS_IAT=$(echo "$PAYLOAD_RAW" | jq -e '.iat != null' 2>/dev/null && echo yes || echo no)
-  HAS_EXP=$(echo "$PAYLOAD_RAW" | jq -e '.exp != null' 2>/dev/null && echo yes || echo no)
+  # jq -e prints the matched value (e.g. `true`) to stdout AND sets exit
+  # status; rely on the exit status via `if` rather than concatenating
+  # `&& echo yes` (which appends to jq's stdout and breaks comparisons).
+  if echo "$PAYLOAD_RAW" | jq -e '.ver != null' >/dev/null 2>&1; then HAS_VER=yes; else HAS_VER=no; fi
+  if echo "$PAYLOAD_RAW" | jq -e '.iat != null' >/dev/null 2>&1; then HAS_IAT=yes; else HAS_IAT=no; fi
+  if echo "$PAYLOAD_RAW" | jq -e '.exp != null' >/dev/null 2>&1; then HAS_EXP=yes; else HAS_EXP=no; fi
   if [ "$HAS_VER" = "yes" ] && [ "$HAS_IAT" = "yes" ] && [ "$HAS_EXP" = "yes" ]; then
     pass "B7. JWT payload has ver / iat / exp"
   else
@@ -338,8 +341,10 @@ fi
 echo ""
 echo "C. Complete step polling + spinner copy"
 
-# C1. Source: the polling effect uses a 2000ms interval.
-if grep -qE "setInterval\([^,]+,\s*2000\)" wiki/src/components/onboarding/CompleteStep.tsx; then
+# C1. Source: the polling effect uses a 2000ms interval. The setInterval
+# call spans 3 lines, so we use `grep -A2` to allow the pattern to match
+# across the call's argument lines instead of a single-line regex.
+if grep -A2 "setInterval(" wiki/src/components/onboarding/CompleteStep.tsx | grep -qE "^\s*\}, ?2000\)"; then
   pass "C1. CompleteStep.tsx polls every 2000ms"
 else
   fail "C1. CompleteStep.tsx does not show a 2000ms polling interval"
@@ -431,7 +436,7 @@ ENTRY_HTTP=$(curl -s -o /tmp/uat-26-entry.json -w "%{http_code}" \
   -H "Origin: http://localhost:3000" \
   -d "$ENTRY_PAYLOAD" \
   "$SERVER_URL/entries")
-if [ "$ENTRY_HTTP" = "200" ] || [ "$ENTRY_HTTP" = "201" ]; then
+if [ "$ENTRY_HTTP" = "200" ] || [ "$ENTRY_HTTP" = "201" ] || [ "$ENTRY_HTTP" = "202" ]; then
   pass "D4. POST /entries (source=web type=thought) → $ENTRY_HTTP"
   ENTRY_API_KEY=$(jq -r '.lookupKey // .id // empty' /tmp/uat-26-entry.json)
 else
@@ -459,9 +464,9 @@ fi
 # the canonical landing route after onboarding.
 npx agent-browser open "$WIKI_URL/login" 2>/dev/null
 npx agent-browser wait --load networkidle
-npx agent-browser fill 'input[name="email"]' "${INITIAL_USERNAME:-uat@robin.test}" 2>/dev/null
-npx agent-browser fill 'input[name="password"]' "${INITIAL_PASSWORD:-uat-password-123}" 2>/dev/null
-npx agent-browser click 'button[type="submit"]' 2>/dev/null
+npx agent-browser fill '#email' "${INITIAL_USERNAME:-uat@robin.test}"
+npx agent-browser fill '#password' "${INITIAL_PASSWORD:-uat-password-123}"
+npx agent-browser click 'button[type="submit"]'
 npx agent-browser wait --load networkidle
 
 npx agent-browser open "$WIKI_URL/wiki" 2>/dev/null

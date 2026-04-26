@@ -219,7 +219,12 @@ export const fragments = pgTable(
   },
   (t) => [
     uniqueIndex('fragments_slug_uidx').on(t.slug),
-    index('fragments_dedup_hash_idx').on(t.dedupHash),
+    // Partial index — keeps the dedup lookup O(1) on live rows only.
+    // findDuplicateFragment filters on deleted_at IS NULL, so soft-deleted
+    // rows are irrelevant to the hot path.
+    index('fragments_dedup_hash_idx')
+      .on(t.dedupHash)
+      .where(sql`${t.deletedAt} IS NULL`),
     // Partial index — keeps the retry scan O(unembedded) regardless of
     // table size.
     index('fragments_embedding_null_idx')

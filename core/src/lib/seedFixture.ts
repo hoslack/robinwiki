@@ -109,12 +109,17 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
   }
 
   // ── People: upsert by slug ───────────────────────────────────────
+  // Existence lookup intentionally ignores `deletedAt`: the underlying
+  // unique index on `people.slug` is global (not partial), so a soft-
+  // deleted row with the same slug still blocks an insert. Re-seed must
+  // resurrect such rows in place rather than retry an insert that would
+  // collide on the unique constraint (issue #205).
   const personKeysBySlug = new Map<string, string>()
   for (const p of projected.people) {
     const [existing] = await db
       .select({ lookupKey: people.lookupKey })
       .from(people)
-      .where(and(eq(people.slug, p.slug), isNull(people.deletedAt)))
+      .where(eq(people.slug, p.slug))
       .limit(1)
 
     const key = existing?.lookupKey ?? makeLookupKey('person')
@@ -126,6 +131,7 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
           canonicalName: p.name,
           relationship: p.relationship,
           state: 'RESOLVED',
+          deletedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(people.lookupKey, key))
@@ -145,12 +151,14 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
   }
 
   // ── Fragments: upsert by slug ────────────────────────────────────
+  // Same idempotency contract as people: the unique index on
+  // `fragments.slug` is global, so resurrect soft-deleted rows in place.
   const fragmentKeysBySlug = new Map<string, string>()
   for (const f of projected.fragments) {
     const [existing] = await db
       .select({ lookupKey: fragments.lookupKey })
       .from(fragments)
-      .where(and(eq(fragments.slug, f.slug), isNull(fragments.deletedAt)))
+      .where(eq(fragments.slug, f.slug))
       .limit(1)
 
     const key = existing?.lookupKey ?? makeLookupKey('frag')
@@ -161,6 +169,7 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
           title: f.title,
           content: f.content,
           state: 'RESOLVED',
+          deletedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(fragments.lookupKey, key))
@@ -179,14 +188,14 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
   }
 
   // ── Entry: upsert by slug ────────────────────────────────────────
+  // `raw_sources.slug` also has a global unique index — same resurrect-
+  // in-place strategy for re-seed idempotency.
   let entryKey: string | null = null
   if (projected.entry) {
     const [existing] = await db
       .select({ lookupKey: entries.lookupKey })
       .from(entries)
-      .where(
-        and(eq(entries.slug, projected.entry.slug), isNull(entries.deletedAt))
-      )
+      .where(eq(entries.slug, projected.entry.slug))
       .limit(1)
 
     entryKey = existing?.lookupKey ?? makeLookupKey('entry')
@@ -197,6 +206,7 @@ export async function seedFixture(): Promise<SeedFixtureResult> {
           title: projected.entry.title,
           content: projected.entry.content,
           state: 'RESOLVED',
+          deletedAt: null,
           updatedAt: new Date(),
         })
         .where(eq(entries.lookupKey, entryKey))

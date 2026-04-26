@@ -93,12 +93,14 @@ export const createWikiBodySchema = z.object({
   prompt: z.string().optional(),
 })
 
-export const updateWikiBodySchema = z.object({
-  name: z.string().optional(),
-  description: z.string().optional(),
-  type: z.string().optional(),
-  prompt: z.string().optional(),
-})
+export const updateWikiBodySchema = z
+  .object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    type: z.string().optional(),
+    prompt: z.string().optional(),
+  })
+  .strict()
 
 export { queuedResponseSchema as wikiRegenerateResponseSchema }
 
