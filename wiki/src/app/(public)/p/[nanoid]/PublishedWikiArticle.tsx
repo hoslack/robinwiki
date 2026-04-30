@@ -29,6 +29,15 @@ export function PublishedWikiArticle({ wiki }: { wiki: PublishedWikiData }) {
     { year: "numeric", month: "long", day: "numeric" },
   );
 
+  // Tiptap-saved bodies are HTML strings (start with `<`); markdown bodies
+  // are LLM-emitted prose. ReactMarkdown escapes raw HTML, so an HTML body
+  // routed through `<MarkdownContent>` renders as literal `&lt;p&gt;` text.
+  // Mirror the shell page's `isHtmlBody` branch: HTML body short-circuits to
+  // `dangerouslySetInnerHTML` (#253). The body is server-side authored and
+  // already trusted (Tiptap save endpoint or AI generation).
+  const isHtmlBody =
+    typeof wiki.content === "string" && wiki.content.trim().startsWith("<");
+
   return (
     <div className="published-page">
       <header className="published-header">
@@ -81,11 +90,19 @@ export function PublishedWikiArticle({ wiki }: { wiki: PublishedWikiData }) {
           />
         )}
 
-        <MarkdownContent
-          content={wiki.content}
-          refs={wiki.refs}
-          style={bodyStyle}
-        />
+        {isHtmlBody ? (
+          <div
+            className="wiki-richtext-rendered"
+            style={bodyStyle}
+            dangerouslySetInnerHTML={{ __html: wiki.content }}
+          />
+        ) : (
+          <MarkdownContent
+            content={wiki.content}
+            refs={wiki.refs}
+            style={bodyStyle}
+          />
+        )}
       </article>
 
       <footer className="published-footer">

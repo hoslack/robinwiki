@@ -501,20 +501,23 @@ if [ -n "${UAT9B_KEY:-}" ] && [ "$UAT9B_KEY" != "null" ]; then
     fi
 
     # 9b-vii. NEGATIVE: escaped HTML tags ('&lt;p&gt;', '&lt;strong&gt;',
-    # '&lt;ul&gt;') must NOT appear in the page body. ReactMarkdown
-    # escapes raw HTML — finding any of these is a deterministic positive
-    # for #253. We restrict the search to the article body region by
-    # scoping to lines containing the marker substring chunks, then sweep
-    # the whole response as a coarse fallback.
+    # '&lt;ul&gt;') must NOT appear in the rendered article body. The page
+    # also serializes `wiki.content` into `<meta name="description">` and
+    # `og:description` (where HTML attribute encoding legitimately escapes
+    # `<` to `&lt;`); we scope the grep to the `<article>` block so meta
+    # encoding never hides a real bug or fakes one. ReactMarkdown escapes
+    # raw HTML — finding any of these inside the article is a deterministic
+    # positive for #253.
+    ARTICLE_BODY=$(grep -oE '<article[^>]*>.*</article>' /tmp/uat-28-9b-page.html | head -1)
     ESCAPED_LEAKS=0
     for tag in "&lt;p&gt;" "&lt;strong&gt;" "&lt;ul&gt;" "&lt;li&gt;"; do
-      if grep -qF "$tag" /tmp/uat-28-9b-page.html; then
+      if echo "$ARTICLE_BODY" | grep -qF "$tag"; then
         ESCAPED_LEAKS=$((ESCAPED_LEAKS+1))
-        fail "9b-vii. Escaped HTML tag found in public page: '$tag' — #253 still present (MarkdownContent rendered HTML body as literal text)"
+        fail "9b-vii. Escaped HTML tag found in <article>: '$tag' — #253 still present (MarkdownContent rendered HTML body as literal text)"
       fi
     done
     if [ "$ESCAPED_LEAKS" = "0" ]; then
-      pass "9b-vii. No escaped HTML tags ('&lt;p&gt;' etc.) in the public page — HTML body branch fired"
+      pass "9b-vii. No escaped HTML tags ('&lt;p&gt;' etc.) in the rendered <article> — HTML body branch fired"
     fi
 
     # 9b-viii. POSITIVE: the rendered DOM should contain real `<strong>`
