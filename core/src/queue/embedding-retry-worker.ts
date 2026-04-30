@@ -1,5 +1,5 @@
 import type { EmbeddingRetryJob, JobResult } from '@robin/queue'
-import { and, isNull, sql } from 'drizzle-orm'
+import { and, isNull, lt, or, sql } from 'drizzle-orm'
 import { embedText, takeLastEmbedFailure } from '@robin/agent'
 import { db } from '../db/client.js'
 import { fragments } from '../db/schema.js'
@@ -64,8 +64,11 @@ export async function processEmbeddingRetryJob(
       and(
         isNull(fragments.embedding),
         isNull(fragments.deletedAt),
-        sql`${fragments.embeddingAttemptCount} < ${MAX_ATTEMPTS}`,
-        sql`(${fragments.embeddingLastAttemptAt} IS NULL OR ${fragments.embeddingLastAttemptAt} < ${cutoff})`
+        lt(fragments.embeddingAttemptCount, MAX_ATTEMPTS),
+        or(
+          isNull(fragments.embeddingLastAttemptAt),
+          lt(fragments.embeddingLastAttemptAt, cutoff)
+        )
       )
     )
     .orderBy(sql`${fragments.embeddingLastAttemptAt} NULLS FIRST`)
