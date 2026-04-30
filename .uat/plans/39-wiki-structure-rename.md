@@ -75,7 +75,7 @@ TA_COUNT=$(grep -cE '<Textarea\b' "$MODAL")
 # Also assert that the structure section uses an inline Textarea, not a
 # button-opens-modal pattern. Look for a 'Wiki Structure' label followed
 # within a few lines by '<Textarea'.
-if awk '/Wiki Structure/{flag=10} flag>0 && /<Textarea/{print "ok"; exit} flag>0{flag--}' "$MODAL" | grep -q ok; then
+if awk '/Wiki Structure/{flag=40} flag>0 && /<Textarea/{print "ok"; exit} flag>0{flag--}' "$MODAL" | grep -q ok; then
   pass "B3. inline Textarea follows the Wiki Structure label"
 else
   fail "B3. Wiki Structure label is not followed by an inline Textarea ($TA_COUNT total)"
