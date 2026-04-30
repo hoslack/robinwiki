@@ -47,13 +47,13 @@ import {
 } from '../db/schema.js'
 import { resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { inferWikiType } from './wiki-type-inference.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
 import { eq, and, isNull } from 'drizzle-orm'
 import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
+import { applyFragmentTitleDatePrefix } from '../lib/fragmentTitlePrefix.js'
 
 const log = logger.child({ component: 'mcp' })
 
@@ -289,7 +289,10 @@ export async function handleLogFragment(
     // relying on a 6-char ULID-prefix suffix that is only unique within
     // a millisecond.
     const fragKey = makeLookupKey('frag')
-    const title = input.title?.trim() || trimmed.slice(0, 80)
+    const rawTitle = input.title?.trim() || trimmed.slice(0, 80)
+    // #239 — prepend UTC YYMMDD to the title before slug generation so the
+    // slug picks up the date prefix too (chronological ordering in lists).
+    const title = applyFragmentTitleDatePrefix(rawTitle)
     const fragSlug = await resolveFragmentSlug(deps.db, generateSlug(title))
     const now = new Date()
 
@@ -487,7 +490,13 @@ export async function handleCreateWikiType(
 /**
  * Handle the `create_wiki` MCP tool call.
  *
- * @summary Creates a new wiki with an inferred type based on description.
+ * @summary Creates a new wiki with the caller-supplied type. #232 made
+ * both `description` and `type` required: the previous behaviour
+ * inferred a type from the description when omitted, which surfaced as
+ * silently-wrong wiki types when LLM clients skipped the optional
+ * field. Now the handler returns a clear error pointing the caller at
+ * `get_wiki_types` instead.
+ *
  * Slug collisions are resolved with a nanoid(6) suffix.
  */
 export async function handleCreateWiki(
@@ -509,48 +518,68 @@ export async function handleCreateWiki(
     }
   }
 
+  // #232 — `description` and `type` are now both required at the handler
+  // level. We surface separate errors so an LLM client knows exactly
+  // which field to add when it retries.
+  if (!input.description?.trim()) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: 'Error: description is required. Describe what this wiki is for.',
+        },
+      ],
+      isError: true as const,
+    }
+  }
+
+  if (!input.type?.trim()) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text:
+            'Error: type is required. Use the get_wiki_types tool to list valid type slugs.',
+        },
+      ],
+      isError: true as const,
+    }
+  }
+
   try {
     const slug = generateSlug(input.title.trim())
     const finalSlug = await resolveWikiSlug(deps.db, slug)
     const lookupKey = makeLookupKey('wiki')
 
-    // Resolve type: explicit `input.type` wins, else infer from description.
-    // Explicit types must exist in the wiki_types registry — the column is
-    // user-extensible (single-tenant table), so a runtime lookup replaces
-    // any static enum validation.
-    let resolvedType: string
-    let inferred: boolean
-    const explicitType = input.type?.trim()
-    if (explicitType) {
-      const [row] = await deps.db
-        .select({ slug: wikiTypesTable.slug })
-        .from(wikiTypesTable)
-        .where(eq(wikiTypesTable.slug, explicitType))
-        .limit(1)
-      if (!row) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text:
-                `Error: unknown wiki type "${explicitType}". Use the get_wiki_types tool to list valid types.`,
-            },
-          ],
-          isError: true as const,
-        }
+    // The caller-supplied type must exist in the wiki_types registry —
+    // the column is user-extensible (single-tenant table), so a runtime
+    // lookup replaces any static enum validation. No inference fallback:
+    // #232 deliberately removed the silent inferWikiType path.
+    const explicitType = input.type.trim()
+    const [row] = await deps.db
+      .select({ slug: wikiTypesTable.slug })
+      .from(wikiTypesTable)
+      .where(eq(wikiTypesTable.slug, explicitType))
+      .limit(1)
+    if (!row) {
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text:
+              `Error: unknown wiki type "${explicitType}". Use the get_wiki_types tool to list valid types.`,
+          },
+        ],
+        isError: true as const,
       }
-      resolvedType = row.slug
-      inferred = false
-    } else {
-      resolvedType = inferWikiType(input.description ?? '')
-      inferred = true
     }
+    const resolvedType = row.slug
 
     await deps.db.insert(wikisTable).values({
       lookupKey,
       slug: finalSlug,
       name: input.title.trim(),
-      description: input.description?.trim() ?? '',
+      description: input.description.trim(),
       type: resolvedType,
       state: 'PENDING',
       prompt: '',
@@ -562,14 +591,13 @@ export async function handleCreateWiki(
       eventType: 'created',
       source: 'mcp',
       summary: `Wiki created: ${input.title.trim()}`,
-      detail: { wikiKey: lookupKey, type: resolvedType, inferred },
+      detail: { wikiKey: lookupKey, type: resolvedType, inferred: false },
     })
 
     const result = {
       slug: finalSlug,
       lookupKey,
       type: resolvedType,
-      inferredType: inferred ? resolvedType : undefined,
     }
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],

@@ -150,6 +150,12 @@ export function SectionedMarkdownBody({
     );
   }
 
+  // #245 — citation numbering is document-wide, not per-section. Walk
+  // the sections in render order and thread a running offset into each
+  // `<WikiCitations>`. The offset advances by the number of citations
+  // in each section so a fragment cited in section A as `[3]` and in
+  // section B is `[N]` where N continues from A's last index.
+  let citationOffset = 0;
   for (const section of parsed) {
     // H1 would span EOF and swallow every subsequent section's body,
     // double-rendering all H2+ content. See module docstring above.
@@ -157,6 +163,8 @@ export function SectionedMarkdownBody({
 
     const matched = citationsByAnchor.get(section.anchor);
     const citations = matched?.citations ?? [];
+    const sectionStart = citationOffset + 1;
+    citationOffset += citations.length;
 
     const canExtractHeading =
       section.level >= 2 && section.level <= 4 && onEditSection !== undefined;
@@ -175,7 +183,9 @@ export function SectionedMarkdownBody({
           {bodyOnly.trim().length > 0 && (
             <MarkdownContent content={bodyOnly} refs={refs} style={style} />
           )}
-          {citations.length > 0 && <WikiCitations citations={citations} />}
+          {citations.length > 0 && (
+            <WikiCitations citations={citations} startIndex={sectionStart} />
+          )}
         </div>,
       );
       continue;
@@ -187,7 +197,9 @@ export function SectionedMarkdownBody({
     blocks.push(
       <div key={section.anchor} id={section.anchor}>
         <MarkdownContent content={body} refs={refs} style={style} />
-        {citations.length > 0 && <WikiCitations citations={citations} />}
+        {citations.length > 0 && (
+          <WikiCitations citations={citations} startIndex={sectionStart} />
+        )}
       </div>,
     );
   }

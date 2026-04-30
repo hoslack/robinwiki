@@ -29,15 +29,15 @@ describe('<WikiCitations>', () => {
     expect(screen.getByText('[2]')).toBeInTheDocument()
   })
 
-  it('links each superscript to /fragments/:fragmentId', () => {
+  it('links each superscript to the in-page #fragment-{lookupKey} anchor (#245)', () => {
     const { container } = render(<WikiCitations citations={citations} />)
     const anchors = container.querySelectorAll('sup[data-slot="wiki-citation"] a')
     expect(anchors).toHaveLength(2)
     expect(anchors[0].getAttribute('href')).toBe(
-      '/fragments/f-self-attention-replaces-recurrence',
+      '#fragment-f-self-attention-replaces-recurrence',
     )
     expect(anchors[1].getAttribute('href')).toBe(
-      '/fragments/f-multi-head-attention-parallelism',
+      '#fragment-f-multi-head-attention-parallelism',
     )
   })
 
