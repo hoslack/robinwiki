@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { fragments as realFragments } from '../db/schema.js'
 
 // ── Module-level mocks ─────────────────────────────────────────────────────
 
@@ -14,21 +16,25 @@ vi.mock('../lib/openrouter-config.js', () => ({
   loadOpenRouterConfig: () => loadOpenRouterConfigMock(),
 }))
 
-// Captured DB writes so tests can assert on them. The drizzle chain stubs
-// below push into these arrays in order.
+// Captured DB calls so tests can assert on them. The drizzle chain stubs
+// below push into these in order.
 const selectReturns: Array<Array<Record<string, unknown>>> = []
 const updateCapture: Array<{ set: Record<string, unknown> }> = []
+const whereCapture: Array<unknown> = []
 
 vi.mock('../db/client.js', () => ({
   db: {
     select: () => ({
       from: () => ({
-        where: () => ({
-          orderBy: () => ({
-            limit: () =>
-              Promise.resolve(selectReturns.shift() ?? []),
-          }),
-        }),
+        where: (clause: unknown) => {
+          whereCapture.push(clause)
+          return {
+            orderBy: () => ({
+              limit: () =>
+                Promise.resolve(selectReturns.shift() ?? []),
+            }),
+          }
+        },
       }),
     }),
     update: () => ({
@@ -40,16 +46,10 @@ vi.mock('../db/client.js', () => ({
   },
 }))
 
-vi.mock('../db/schema.js', () => ({
-  fragments: {
-    lookupKey: 'lookupKey',
-    content: 'content',
-    embedding: 'embedding',
-    embeddingAttemptCount: 'embedding_attempt_count',
-    embeddingLastAttemptAt: 'embedding_last_attempt_at',
-    deletedAt: 'deleted_at',
-  },
-}))
+// Note: we intentionally do NOT mock '../db/schema.js'. Using the real
+// fragments table is required for issue #216's regression test, which feeds
+// the captured where expression into PgDialect to validate that the Date
+// cutoff binds without throwing TypeError [ERR_INVALID_ARG_TYPE].
 
 const { processEmbeddingRetryJob } = await import('./embedding-retry-worker.js')
 
@@ -70,6 +70,7 @@ beforeEach(() => {
   loadOpenRouterConfigMock.mockReset()
   selectReturns.length = 0
   updateCapture.length = 0
+  whereCapture.length = 0
   loadOpenRouterConfigMock.mockResolvedValue({
     apiKey: 'k',
     models: { extraction: 'x', classification: 'y', wikiGeneration: 'z', embedding: 'e' },
@@ -115,6 +116,33 @@ describe('processEmbeddingRetryJob — issue #151', () => {
     expect(res.success).toBe(true)
     expect(embedTextMock).not.toHaveBeenCalled()
     expect(updateCapture).toHaveLength(0)
+  })
+
+  // Regression test for issue #216: prior to the fix, the worker passed a
+  // raw Date into a `sql\`...\`` template literal, which made the pg driver
+  // throw `TypeError [ERR_INVALID_ARG_TYPE]` at every 15-min cron tick. The
+  // fix uses Drizzle's typed `lt()` comparison, which normalizes Date into
+  // an ISO string param the driver accepts.
+  it('issue #216: serializes Date cutoff in where clause without throwing', async () => {
+    selectReturns.push([])
+    await processEmbeddingRetryJob(baseJob())
+    expect(whereCapture).toHaveLength(1)
+    // Sanity check: the captured where targets the real schema column so
+    // PgDialect can resolve column references during compilation.
+    expect(realFragments.embeddingLastAttemptAt).toBeDefined()
+    const dialect = new PgDialect()
+    expect(() => dialect.sqlToQuery(whereCapture[0] as never)).not.toThrow()
+    const compiled = dialect.sqlToQuery(whereCapture[0] as never)
+    expect(compiled.sql).toMatch(/embedding_last_attempt_at/)
+    expect(compiled.sql).toMatch(/is null/i)
+    // The cutoff Date must reach the param array as an ISO timestamp string,
+    // not a JS Date instance (which would crash the pg driver). Find the
+    // ISO string corresponding to a Date param.
+    const isoCutoff = compiled.params.find(
+      (p): p is string =>
+        typeof p === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(p)
+    )
+    expect(isoCutoff).toBeDefined()
   })
 
   it('processes multiple rows per invocation', async () => {
