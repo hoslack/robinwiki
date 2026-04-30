@@ -766,6 +766,20 @@ export function WikiEntityArticle({
             </div>
           </div>
 
+          {/*
+            Structured `.winfo` infobox (sidecar-driven) renders ABOVE the
+            article body at full content width — issue #251. The legacy
+            217px `.wiki-aside-infobox` variants (renderInfobox) keep their
+            side-rail slot below.
+          */}
+          {showInfobox && infoVisible && !isEditing && !isViewingHistory && renderCustomInfobox
+            ? (
+                <div className="wiki-article-infobox-above" style={{ width: "100%" }}>
+                  {renderCustomInfobox()}
+                </div>
+              )
+            : null}
+
           <div
             className="wiki-article-layout"
             style={{
@@ -807,18 +821,12 @@ export function WikiEntityArticle({
               )}
             </div>
 
-            {showInfobox && infoVisible && !isEditing && !isViewingHistory
-              ? (() => {
-                  const content = renderCustomInfobox
-                    ? renderCustomInfobox()
-                    : renderInfobox(infobox);
-
-                  return (
-                    <div className="hidden md:block">
-                      {content}
-                    </div>
-                  );
-                })()
+            {showInfobox && infoVisible && !isEditing && !isViewingHistory && !renderCustomInfobox
+              ? (
+                  <div className="hidden md:block">
+                    {renderInfobox(infobox)}
+                  </div>
+                )
               : null}
           </div>
         </div>
