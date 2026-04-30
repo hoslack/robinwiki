@@ -30,6 +30,7 @@ vi.mock('@robin/agent', async (importOriginal) => {
       fragmenter: {},
       entityExtractor: {},
       fragScorer: {},
+      wikiWriter: {},
     })),
     createTypedCaller: vi.fn(() => fakeCallLlm),
     embedText: vi.fn(async () => null),
