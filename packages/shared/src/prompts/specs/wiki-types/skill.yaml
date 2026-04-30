@@ -19,6 +19,11 @@ default_structure: |
   ## Core Techniques
   Key methods, approaches, and how-to knowledge.
 
+  ## The Skill, Step by Step
+  An ordered walkthrough of the skill in practice. Each step is a
+  concrete action grounded in the fragments — do not invent steps the
+  fragments do not state.
+
   ## Lessons Learned
   What practice and experience have revealed.
 

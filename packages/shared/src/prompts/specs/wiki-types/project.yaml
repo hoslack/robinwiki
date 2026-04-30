@@ -19,6 +19,10 @@ default_structure: |
   ## Status
   Current state: active, paused, or complete.
 
+  ## Roles
+  Who is involved and what each person owns. Include attribution for
+  fragment-stated ownership; omit speculative roles.
+
   ## Progress
   Key milestones and what has been accomplished.
 
