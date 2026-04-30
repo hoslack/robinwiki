@@ -23,6 +23,7 @@ import { MarkdownContent } from "@/components/wiki/MarkdownContent";
 import { WikiInfobox } from "@/components/wiki/WikiInfobox";
 import { WikiChip } from "@/components/wiki/WikiChip";
 import { WikiCitations } from "@/components/wiki/WikiCitations";
+import { WikiCitationsSection } from "@/components/wiki/WikiCitationsSection";
 import { WikiEditLink } from "@/components/wiki/WikiFurniture";
 import { SectionedMarkdownBody } from "./SectionedMarkdownBody";
 import {
@@ -504,6 +505,16 @@ export default function WikiDetailPage() {
             />
           </div>
         )
+      )}
+      {/* #245 — document-wide citations section. Flatten every section's
+          citations into a single list (preserving order); the component
+          dedups by lookupKey internally so a fragment cited from
+          multiple sections appears once at the bottom and every
+          superscript anchor lands on the same row. */}
+      {sidecarSections.length > 0 && (
+        <WikiCitationsSection
+          citations={sidecarSections.flatMap((s) => s.citations ?? [])}
+        />
       )}
       <SectionEditor
         open={editingSectionId !== null}
