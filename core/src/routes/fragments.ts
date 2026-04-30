@@ -219,7 +219,10 @@ fragmentsRouter.put('/:id', zValidator('json', updateFragmentBodySchema, validat
 
   const updates: Record<string, unknown> = { updatedAt: new Date() }
   if (body.title != null) updates.title = body.title
-  if (body.content != null) updates.dedupHash = computeContentHash(body.content)
+  if (body.content != null) {
+    updates.content = body.content
+    updates.dedupHash = computeContentHash(body.content)
+  }
   if (body.tags != null) updates.tags = body.tags
 
   const [fragment] = await db

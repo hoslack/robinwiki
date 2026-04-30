@@ -442,11 +442,13 @@ export default function WikiDetailPage() {
           // rather than injected per-section (MVP option b in the
           // phase spec).
           <>
-            <HtmlWikiBody
-              html={wiki.wikiContent}
-              refs={refs}
-              style={bodyStyle}
-            />
+            <div data-wiki-body>
+              <HtmlWikiBody
+                html={wiki.wikiContent}
+                refs={refs}
+                style={bodyStyle}
+              />
+            </div>
             {sidecarSections.length > 0 && (
               <div
                 style={{
@@ -487,16 +489,18 @@ export default function WikiDetailPage() {
           // syntax and fenced blocks don't survive cleanly. Q9 default
           // option (b): hide the affordance on HTML-saved bodies. The
           // user is told to regenerate to re-enable it.
-          <SectionedMarkdownBody
-            content={wiki.wikiContent}
-            refs={refs}
-            sections={sidecarSections}
-            style={bodyStyle}
-            onEditSection={(sectionId) => {
-              setSectionSaveError(null);
-              setEditingSectionId(sectionId);
-            }}
-          />
+          <div data-wiki-body>
+            <SectionedMarkdownBody
+              content={wiki.wikiContent}
+              refs={refs}
+              sections={sidecarSections}
+              style={bodyStyle}
+              onEditSection={(sectionId) => {
+                setSectionSaveError(null);
+                setEditingSectionId(sectionId);
+              }}
+            />
+          </div>
         )
       )}
       <SectionEditor

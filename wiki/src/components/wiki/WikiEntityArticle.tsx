@@ -666,15 +666,38 @@ export function WikiEntityArticle({
                               : "wiki-article-tab"
                           }
                           onClick={() => {
+                            // Scope the read-mode HTML capture to the `[data-wiki-body]`
+                            // subtree so sidebar chrome (Member Fragments,
+                            // Mentioned People, citations, etc.) never leaks
+                            // into the Tiptap draft and gets baked into
+                            // `wikis.content` on save (#241). Fall back to the
+                            // wrapper innerHTML for callers that haven't opted
+                            // in yet (e.g. the People page).
+                            //
+                            // Within the body, strip `[data-slot]` affordances
+                            // (the inline `[edit]` link rendered by
+                            // `WikiEditLink`, citation superscripts, etc.) —
+                            // they are interactive UI, not author content, and
+                            // round-tripping them turns live affordances into
+                            // inert markup permanently baked into the body.
+                            let bodyHtml = "";
+                            const bodyEl = readContentRef.current?.querySelector("[data-wiki-body]");
+                            if (bodyEl) {
+                              const clone = bodyEl.cloneNode(true) as HTMLElement;
+                              clone.querySelectorAll("[data-slot]").forEach((n) => n.remove());
+                              bodyHtml = clone.innerHTML;
+                            } else {
+                              bodyHtml = readContentRef.current?.innerHTML ?? "";
+                            }
                             if (tab === "Edit") {
                               enterEditMode({
-                                currentHtml: readContentRef.current?.innerHTML ?? "",
+                                currentHtml: bodyHtml,
                                 currentTitle: displayTitle,
                                 currentChipLabel: displayChipLabel,
                               });
                             } else if (tab === "View history") {
                               openHistory({
-                                currentHtml: readContentRef.current?.innerHTML ?? "",
+                                currentHtml: bodyHtml,
                                 currentTitle: displayTitle,
                                 currentChipLabel: displayChipLabel,
                               });
