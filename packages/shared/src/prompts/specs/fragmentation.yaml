@@ -48,9 +48,12 @@ template: |
   9. MERGE trivial context into its parent fragment. "Had coffee with
      Sarah" is not a standalone fragment unless the meeting itself is the
      point. Fold setting and circumstance into the substantive claim.
-  10. PRONOUNS: Replace first-person singular pronouns (I, me, my) with
-     "Author" so each fragment stands alone. This is the one allowed
-     departure from Rule 3.
+  10. PRONOUNS: Leave first-person pronouns (I, me, my) exactly as they
+     appear in the source. Do NOT substitute "Author" or any other name
+     for them. Authorship is resolved downstream by the classifier's
+     [AUTHORSHIP] block, not by rewriting the fragment text. Preserving
+     the original wording keeps Rule 3 intact and avoids drift when text
+     contains multiple speakers.
 
   [FRAGMENT TYPES — use the most specific type that fits]
   - fact: A concrete, verifiable statement about something that happened or is true.

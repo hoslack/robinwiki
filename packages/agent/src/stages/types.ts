@@ -74,6 +74,13 @@ export interface WikiClassifyDeps {
     limit: number
   ) => Promise<Array<{ wikiKey: string; score: number }>>
   loadThreads: (wikiKeys: string[]) => Promise<ThreadInfo[]>
+  /**
+   * Resolve the owner-Person display name (#238). Implementations should
+   * return null when no owner row is seeded yet — the loader falls back
+   * to a generic "the owner" label so the prompt's [AUTHORSHIP] block
+   * stays grammatical.
+   */
+  loadOwnerName?: () => Promise<string | null>
   llmCall: (system: string, user: string) => Promise<WikiClassificationOutput>
   emitEvent: EmitEvent
 }

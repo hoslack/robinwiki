@@ -302,6 +302,12 @@ export const people = pgTable(
     canonicalName: text('canonical_name').notNull().default(''),
     aliases: text('aliases').array().notNull().default(sql`'{}'::text[]`),
     verified: boolean('verified').notNull().default(false),
+    // Owner-Person flag (#238). Exactly one row may carry is_owner = true
+    // (enforced by people_is_owner_uidx in 0011). The owner-Person
+    // represents the user account itself; the classifier prompt's new
+    // [AUTHORSHIP] block tells the agent to interpret first-person
+    // pronouns as this Person.
+    isOwner: boolean('is_owner').notNull().default(false),
     lastRebuiltAt: timestamp('last_rebuilt_at'),
     embedding: vector('embedding', { dimensions: 1536 }),
     searchVector: tsvector('search_vector'),

@@ -46,9 +46,12 @@ export async function wikiClassify(
     }))
   )
 
+  const ownerName = deps.loadOwnerName ? ((await deps.loadOwnerName()) ?? undefined) : undefined
+
   const spec = loadWikiClassificationSpec({
     content: input.fragmentContent,
     wikis: wikisJson,
+    ownerName,
   })
   const result = await deps.llmCall(spec.system, spec.user)
 

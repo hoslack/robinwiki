@@ -1,5 +1,5 @@
 name: MarcelTheClassifier
-version: 2
+version: 3
 category: classification
 system_only: true
 task: wiki_classification
@@ -22,6 +22,18 @@ template: |
   [TASK]
   Determine which of the available wikis this fragment belongs to.
   A fragment may belong to zero, one, or multiple wikis.
+
+  [AUTHORSHIP]
+  The owner of this knowledge base is {{ownerName}}. When a fragment
+  contains first-person pronouns (I, me, my, mine, myself), interpret
+  them as referring to {{ownerName}} unless the surrounding text makes
+  another speaker explicit (e.g. inside a quoted attribution like
+  "Sarah said 'I will…'"). This means:
+  - "I went for a run" → an action by {{ownerName}}.
+  - "Sarah said I should refactor" → an action attributed to Sarah,
+    addressed to {{ownerName}}.
+  Use this when judging fit against an owner-centric wiki (e.g. a
+  wiki about {{ownerName}}'s habits, decisions, or projects).
 
   [AVAILABLE WIKIS]
   {{wikis}}
@@ -66,6 +78,12 @@ input_variables:
     description: >
       JSON array of available wikis, each with key, name, wikiType,
       and description.
+    required: true
+  - name: ownerName
+    description: >
+      Display name of the owner-Person (the user account itself).
+      Resolves first-person pronouns in the fragment text via the
+      [AUTHORSHIP] block.
     required: true
   - name: fragmentContext
     description: The source entry text for additional context
