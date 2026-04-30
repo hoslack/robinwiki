@@ -21,9 +21,20 @@ export const AGENT_RETRY_CONFIG = {
   backoff: { initial: 1000, multiplier: 3 }, // 1s, 3s
 } as const
 
+/**
+ * Output token cap shared by every agent.generate() call.
+ *
+ * Sonnet 4.6 supports 16k output tokens; the OpenRouter SDK default is
+ * ~4096, which silently truncated long wiki regen output (issue #257).
+ * Raising the cap globally is safe because shorter prompts simply finish
+ * sooner — the cap is an upper bound, not a target length.
+ */
+export const AGENT_MAX_OUTPUT_TOKENS = 16000
+
 /** Model settings passed to every agent.generate() call. */
 export const AGENT_MODEL_SETTINGS = {
   maxRetries: AGENT_RETRY_CONFIG.maxRetries,
+  maxOutputTokens: AGENT_MAX_OUTPUT_TOKENS,
 } as const
 
 /**

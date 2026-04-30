@@ -293,7 +293,10 @@ export async function classifyUnfiledFragments(
           )
         return rows
       },
-      llmCall: createTypedCaller(agents.wikiClassifier, wikiClassificationSchema),
+      llmCall: createTypedCaller(
+        agents.wikiClassifier,
+        wikiClassificationSchema,
+      ),
       emitEvent: async () => {},
     }
 
@@ -426,8 +429,13 @@ export async function regenerateWiki(
   // Cast through `unknown` because Zod's `.default()` widens the schema's
   // input type but createTypedCaller is parameterised by the output type
   // (what the caller ultimately consumes).
+  //
+  // Use the dedicated wikiWriter agent (Sonnet, 16k output cap) — not the
+  // wiki-classifier (Haiku, 4k cap). Issue #257: long regen output was
+  // silently truncated mid-sentence because the classifier model's default
+  // ~4096 token cap fell well short of typical wiki bodies.
   const callLlm = createTypedCaller(
-    agents.wikiClassifier,
+    agents.wikiWriter,
     regenOutputSchema as unknown as import('zod').ZodType<RegenOutput>,
   )
 
