@@ -97,6 +97,30 @@ DEDUP=$(curl -s -w "\n%{http_code}" -X POST -b "$COOKIE_JAR" \
 DEDUP_HTTP=$(echo "$DEDUP" | tail -1)
 [ "$DEDUP_HTTP" = "200" ] && pass "dedup returns 200 (not 201)" || fail "dedup returned $DEDUP_HTTP (expected 200)"
 
+# 6. Content round-trip (#263) — PUT new content, GET, assert returned content matches.
+# Bug present: PUT /fragments/:id writes dedupHash but never updates the
+# `content` column, so the new body silently disappears. Frontend save
+# loops round-trip the same broken endpoint.
+# This step runs AFTER dedup (#5) because mutating content rotates the
+# fragment's dedupHash and would invalidate the dedup probe.
+NEW_FRAG_CONTENT="UAT-09 §6 new content body [$RUN_SUFFIX]"
+PUT_CONTENT_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+  -X PUT -b "$COOKIE_JAR" \
+  -H "Content-Type: application/json" \
+  -H "Origin: http://localhost:3000" \
+  -d "$(jq -n --arg c "$NEW_FRAG_CONTENT" '{content:$c}')" \
+  "$SERVER_URL/fragments/$FRAG_ID")
+[ "$PUT_CONTENT_HTTP" = "200" ] && pass "PUT /fragments/:id with {content} → 200" \
+                                || fail "PUT content → HTTP $PUT_CONTENT_HTTP"
+
+ROUNDTRIP_CONTENT=$(curl -s -b "$COOKIE_JAR" -H "Origin: http://localhost:3000" \
+  "$SERVER_URL/fragments/$FRAG_ID" | jq -r '.content')
+if [ "$ROUNDTRIP_CONTENT" = "$NEW_FRAG_CONTENT" ]; then
+  pass "6. content round-trip — PUT then GET returns the new content"
+else
+  fail "6. content round-trip — got '${ROUNDTRIP_CONTENT:0:60}', want '${NEW_FRAG_CONTENT:0:60}' (#263 — PUT writes dedupHash, never content)"
+fi
+
 echo ""
 echo "$PASS passed, $FAIL failed"
 ```
