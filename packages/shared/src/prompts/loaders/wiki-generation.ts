@@ -4,7 +4,7 @@ import type { PromptResult } from '../types.js'
 import type { PromptSpec } from '../schema.js'
 import type { WikiType } from '../../types/wiki.js'
 import { logWikiSchema } from '../specs/wiki-types/log.schema.js'
-import { collectionWikiSchema } from '../specs/wiki-types/collection.schema.js'
+import { researchWikiSchema } from '../specs/wiki-types/research.schema.js'
 import { beliefWikiSchema } from '../specs/wiki-types/belief.schema.js'
 import { decisionWikiSchema } from '../specs/wiki-types/decision.schema.js'
 import { projectWikiSchema } from '../specs/wiki-types/project.schema.js'
@@ -12,7 +12,7 @@ import { objectiveWikiSchema } from '../specs/wiki-types/objective.schema.js'
 import { skillWikiSchema } from '../specs/wiki-types/skill.schema.js'
 import { agentWikiSchema } from '../specs/wiki-types/agent.schema.js'
 import { voiceWikiSchema } from '../specs/wiki-types/voice.schema.js'
-import { principlesWikiSchema } from '../specs/wiki-types/principles.schema.js'
+import { principleWikiSchema } from '../specs/wiki-types/principle.schema.js'
 
 /**
  * Shape a fragment row into the [FRAGMENTS] inline-slug format consumed by
@@ -95,11 +95,14 @@ const inputSchema = z.object({
   existingWiki: z.string().optional(),
   edits: z.string().optional(),
   relatedWikis: z.string().optional(),
+  // #244 — per-wiki structure override (wikis.structure). When present this
+  // wins over the type's default_structure. Resolved before render.
+  structure: z.string().optional(),
 })
 
 const schemaMap: Record<WikiType, z.ZodType> = {
   log: logWikiSchema,
-  collection: collectionWikiSchema,
+  research: researchWikiSchema,
   belief: beliefWikiSchema,
   decision: decisionWikiSchema,
   project: projectWikiSchema,
@@ -107,7 +110,7 @@ const schemaMap: Record<WikiType, z.ZodType> = {
   skill: skillWikiSchema,
   agent: agentWikiSchema,
   voice: voiceWikiSchema,
-  principles: principlesWikiSchema,
+  principle: principleWikiSchema,
 }
 
 /**
@@ -140,6 +143,11 @@ export function loadWikiGenerationSpec(
     existingWiki?: string
     edits?: string
     relatedWikis?: string
+    /**
+     * #244 — per-wiki structure override (from `wikis.structure`). When
+     * non-empty, replaces the type's `default_structure` before render.
+     */
+    structure?: string
   },
   override?: WikiGenerationOverride,
 ): PromptResult {
@@ -165,7 +173,21 @@ export function loadWikiGenerationSpec(
     }
   }
 
-  const user = renderTemplate(effective.template, validated)
+  // Resolve {{structure}} — per-wiki override beats the type's
+  // default_structure. Render the resolved structure block through
+  // Handlebars first so it can interpolate `{{title}}` etc. (the
+  // structure block is still a sub-template, not opaque text). Empty-
+  // string fallback keeps the outer render safe if a malformed yaml
+  // omits both.
+  const overrideStructure = validated.structure?.trim()
+  const rawStructure =
+    overrideStructure && overrideStructure.length > 0
+      ? overrideStructure
+      : (effective.default_structure ?? '')
+  const resolvedStructure = renderTemplate(rawStructure, validated)
+
+  const renderVars = { ...validated, structure: resolvedStructure }
+  const user = renderTemplate(effective.template, renderVars)
   return {
     system: effective.system_message,
     user,

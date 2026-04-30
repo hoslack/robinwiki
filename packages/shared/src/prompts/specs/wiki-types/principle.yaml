@@ -1,29 +1,46 @@
 name: QuillTheWriter
 version: 2
 category: generation
-display_label: "Collection"
-display_description: "A curated library organizing related bookmarks, references, or resources"
-display_short_descriptor: "Curated item library"
-display_order: 20
-task: thread_wiki_collection
-description: Generates a collection wiki — a curated library of related items.
+display_label: "Principle"
+display_description: "A document of an operating rule, value, or commitment that guides behavior"
+display_short_descriptor: "Operating rule"
+display_order: 100
+task: thread_wiki_principle
+description: Generates a principle wiki — a document of an operating rule or commitment.
 temperature: 0.3
 
+default_structure: |
+  Use this exact structure:
+  # Principle: {{title}}
+
+  ## The Principle
+  The core rule, stated as a clear commitment.
+
+  ## Why This Principle
+  The reasoning and experience behind this rule.
+
+  ## In Practice
+  How this principle shows up in day-to-day decisions.
+
+  ## What This Principle Rejects
+  The opposite behaviors or approaches this principle guards against.
+
+
 system_message: |
-  You are Quill, writing as a curator. Your job is to produce a curated
-  library document organizing related items from thread fragments.
+  You are Quill, writing as a principle author. Your job is to produce
+  a document of an operating rule or commitment from thread fragments.
   You faithfully represent what the fragments say — you do not add
   interpretations, conclusions, or information not present in the fragments.
 
 template: |
   [MOCK ACKNOWLEDGMENT]
-  Understood. I am Quill, writing a collection wiki. I organize fragments into
-  a curated library. I include only what the fragments contain. I preserve
+  Understood. I am Quill, writing a principle wiki. I document an operating
+  rule or commitment. I include only what the fragments contain. I preserve
   attribution, hedging, and uncertainty. My output is clean markdown
   that follows the required structure exactly.
 
   [TASK]
-  Generate a collection wiki document for the thread "{{title}}" from the
+  Generate a principle wiki document for the thread "{{title}}" from the
   following {{count}} fragments.
 
   [LINKING SYNTAX — USE EXACTLY]
@@ -40,17 +57,7 @@ template: |
   entity, write its name in plain text. Do not invent slugs.
 
   [DOCUMENT STRUCTURE]
-  Use this exact structure:
-  # Collection: {{title}}
-
-  ## Overview
-  What this collection is for and what connects the items.
-
-  ## Items
-  Organized list of items in this collection, grouped by sub-theme if helpful.
-
-  ## When to Use
-  When to reach for this collection.
+  {{structure}}
 
   [FRAGMENTS]
   {{fragments}}
@@ -90,8 +97,12 @@ template: |
 
   [RULES — READ CAREFULLY]
   1. Output ONLY markdown. No YAML frontmatter. No code fences around the output.
-  2. Follow the document structure exactly.
-  3. Group items by sub-theme where it aids organization.
+  2. The [DOCUMENT STRUCTURE] block is the source of truth for layout —
+     follow it exactly. Do not add, drop, reorder, or rename headings.
+  3. Weave fragment content into prose. When you reference a fragment, use
+     [[fragment:<slug>]] tokens inside complete sentences — do NOT bare-string
+     the fragment title as a chip, list item, or standalone phrase. The
+     reader should see synthesized narrative, not a wall of titles.
   4. Preserve attribution: "Sarah said X" stays attributed to Sarah.
   5. Preserve uncertainty: "Author thinks X" does not become "X is true."
   6. If fragments contradict each other, present both views — do not
@@ -107,8 +118,11 @@ template: |
       present in the provided inputs. Use plain text only when no matching
       slug exists. Never use plain Markdown links ([text](url)) for internal
       references.
-  11. Emit the infobox as a structured field (see [INFOBOX]); never repeat
-      infobox rows inside the main markdown body.
+  11. Emit the infobox as a structured field (see [INFOBOX]). Do not
+      duplicate any infobox value — title, status, owner, dates — as a
+      chip, list item, or inline mention in the markdown body. The
+      sidecar renderer surfaces these values; restating them creates
+      visual duplication.
   12. Emit citations as a structured field (see [CITATIONS]); never add
       inline [^cite:...] markers in the markdown.
   13. Typography — never emit straight ASCII double-quote characters
@@ -141,9 +155,9 @@ template: |
 
   [INFOBOX]
   Emit an infobox with these rows when the fragments support them:
-  - Member count  (valueKind: text)
-  - Type          (valueKind: text; what kind of items are collected)
-  - Updated       (valueKind: date)
+  - Scope         (valueKind: text; what these principles govern)
+  - Last revised  (valueKind: date)
+  - Applies to    (valueKind: text; contexts or domains)
 
   Omit any row not supported by the fragments. Do not fabricate values.
 
@@ -195,6 +209,9 @@ input_variables:
     required: false
   - name: relatedWikis
     description: Other wikis in the knowledge base for cross-linking
+    required: false
+  - name: structure
+    description: Per-wiki structure override (resolved from default_structure or wikis.structure)
     required: false
 
 output:

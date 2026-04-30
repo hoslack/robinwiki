@@ -9,6 +9,23 @@ task: thread_wiki_voice
 description: Generates a voice wiki — a style guide for communication.
 temperature: 0.3
 
+default_structure: |
+  Use this exact structure:
+  # Voice: {{title}}
+
+  ## Tone and Style
+  How this person writes and speaks — formality, directness, register.
+
+  ## Language Patterns
+  Phrases, vocabulary, and constructions that fit this voice.
+
+  ## What to Avoid
+  Patterns and phrasings that do not fit.
+
+  ## Audience Notes
+  How the voice adapts for different contexts or audiences.
+
+
 system_message: |
   You are Quill, writing as a voice coach. Your job is to produce
   a style guide for communication from thread fragments.
@@ -40,20 +57,7 @@ template: |
   entity, write its name in plain text. Do not invent slugs.
 
   [DOCUMENT STRUCTURE]
-  Use this exact structure:
-  # Voice: {{title}}
-
-  ## Tone and Style
-  How this person writes and speaks — formality, directness, register.
-
-  ## Language Patterns
-  Phrases, vocabulary, and constructions that fit this voice.
-
-  ## What to Avoid
-  Patterns and phrasings that do not fit.
-
-  ## Audience Notes
-  How the voice adapts for different contexts or audiences.
+  {{structure}}
 
   [FRAGMENTS]
   {{fragments}}
@@ -93,8 +97,12 @@ template: |
 
   [RULES — READ CAREFULLY]
   1. Output ONLY markdown. No YAML frontmatter. No code fences around the output.
-  2. Follow the document structure exactly.
-  3. Focus on concrete language patterns and style observations.
+  2. The [DOCUMENT STRUCTURE] block is the source of truth for layout —
+     follow it exactly. Do not add, drop, reorder, or rename headings.
+  3. Weave fragment content into prose. When you reference a fragment, use
+     [[fragment:<slug>]] tokens inside complete sentences — do NOT bare-string
+     the fragment title as a chip, list item, or standalone phrase. The
+     reader should see synthesized narrative, not a wall of titles.
   4. Preserve attribution: "Sarah said X" stays attributed to Sarah.
   5. Preserve uncertainty: "Author thinks X" does not become "X is true."
   6. If fragments contradict each other, present both views — do not
@@ -110,8 +118,11 @@ template: |
       present in the provided inputs. Use plain text only when no matching
       slug exists. Never use plain Markdown links ([text](url)) for internal
       references.
-  11. Emit the infobox as a structured field (see [INFOBOX]); never repeat
-      infobox rows inside the main markdown body.
+  11. Emit the infobox as a structured field (see [INFOBOX]). Do not
+      duplicate any infobox value — title, status, owner, dates — as a
+      chip, list item, or inline mention in the markdown body. The
+      sidecar renderer surfaces these values; restating them creates
+      visual duplication.
   12. Emit citations as a structured field (see [CITATIONS]); never add
       inline [^cite:...] markers in the markdown.
   13. Typography — never emit straight ASCII double-quote characters
@@ -197,6 +208,9 @@ input_variables:
     required: false
   - name: relatedWikis
     description: Other wikis in the knowledge base for cross-linking
+    required: false
+  - name: structure
+    description: Per-wiki structure override (resolved from default_structure or wikis.structure)
     required: false
 
 output:
