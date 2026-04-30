@@ -423,6 +423,17 @@ async function processLinkJob(job: LinkJob): Promise<JobResult> {
           )
         return rows
       },
+      loadOwnerName: async () => {
+        // Owner-Person seed (#238). Returns null if no owner row exists
+        // yet — the classifier loader falls back to "the owner" so the
+        // [AUTHORSHIP] block still renders grammatically.
+        const [row] = await db
+          .select({ name: people.name })
+          .from(people)
+          .where(eq(people.isOwner, true))
+          .limit(1)
+        return row?.name ?? null
+      },
       llmCall: createTypedCaller(agents.wikiClassifier, wikiClassificationSchema),
       emitEvent,
     },

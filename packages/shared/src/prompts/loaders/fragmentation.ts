@@ -9,10 +9,17 @@ const inputSchema = z.object({
 })
 
 /**
- * Compute fragment target and hard ceiling from word count.
+ * Compute hard fragment ceiling from word count.
+ *
+ * v6 dropped the prompt-side `target` nudge — atomicity is now judged by
+ * topic coherence, not by length. The ceiling is still useful as a code
+ * safety net to prevent runaway over-splitting on very long entries, so
+ * the function and `target` field are kept for backward compatibility
+ * with `packages/agent/src/stages/fragment.ts`.
  *
  * @param wordCount - number of words in the entry content
- * @returns `{ target, ceiling }` — target is the prompt hint, ceiling is the code-enforced max
+ * @returns `{ target, ceiling }` — both are code-side caps; neither is
+ *   injected into the prompt template.
  */
 export function computeFragmentLimits(wordCount: number) {
   const target = Math.max(1, Math.min(30, Math.round(wordCount / 150)))
@@ -27,14 +34,7 @@ export function loadFragmentationSpec(vars: {
   const validated = inputSchema.parse(vars)
   const spec = loadSpec('fragmentation.yaml')
 
-  const wordCount = validated.content.split(/\s+/).filter(Boolean).length
-  const { target: fragmentTarget } = computeFragmentLimits(wordCount)
-
-  const user = renderTemplate(spec.template, {
-    ...validated,
-    wordCount,
-    fragmentTarget,
-  })
+  const user = renderTemplate(spec.template, validated)
   return {
     system: spec.system_message,
     user,

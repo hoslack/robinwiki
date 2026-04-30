@@ -92,6 +92,13 @@
       "when": 1778284800000,
       "tag": "0012_wiki_types_rename_collection_principles",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778371200000,
+      "tag": "0013_people_is_owner",
+      "breakpoints": true
     }
   ]
 }

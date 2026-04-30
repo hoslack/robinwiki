@@ -92,10 +92,14 @@ describe('fragmentation', () => {
     expect(result.user).toContain('confidence')
   })
 
-  it('injects correct fragmentTarget for short content', () => {
+  it('does NOT inject wordCount/fragmentTarget into the rendered template (v6)', () => {
+    // v6 dropped the word-count → target heuristic in favour of topic
+    // coherence. The loader still computes a code-side ceiling, but the
+    // prompt body must not nudge the LLM toward a target number.
     const result = loadFragmentationSpec({ content: 'short entry' })
-    expect(result.user).toContain('approximately 2 words')
-    expect(result.user).toContain('approximately 1 fragments')
+    expect(result.user).not.toContain('approximately 2 words')
+    expect(result.user).not.toContain('approximately 1 fragments')
+    expect(result.user).not.toMatch(/\{\{wordCount\}\}|\{\{fragmentTarget\}\}/)
   })
 })
 
