@@ -7,6 +7,7 @@ export interface IngestAgents {
   entityExtractor: Agent
   wikiClassifier: Agent
   fragScorer: Agent
+  wikiWriter: Agent
 }
 
 /**
@@ -41,6 +42,15 @@ export function createIngestAgents(config: OpenRouterConfig): IngestAgents {
       name: 'Judge',
       instructions: '',
       model: or(config.models.classification),
+    }),
+    // Quill — wiki body writer. Uses the wikiGeneration model slot
+    // (Sonnet-class) and a 16k output cap so long wikis don't truncate.
+    // The cap is enforced via AGENT_MODEL_SETTINGS in agents/caller.ts.
+    wikiWriter: new Agent({
+      id: 'wiki-writer',
+      name: 'Quill',
+      instructions: '',
+      model: or(config.models.wikiGeneration),
     }),
   }
 }
