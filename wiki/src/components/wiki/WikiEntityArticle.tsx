@@ -282,6 +282,10 @@ export type WikiEntityArticleProps = {
   description?: string;
   /** Current bouncer mode for settings modal prefill */
   bouncerMode?: 'auto' | 'review';
+  /** Current publish state — feeds the publish toggle in settings modal (#255). */
+  published?: boolean;
+  /** Public published-wiki nanoid slug (when published) for share-link UI. */
+  publishedSlug?: string | null;
   /** Real wiki id for settings-mode PUT. Prototype pages omit → 'preview' sentinel. */
   wikiId?: string;
   /** Called after local save completes — persist to backend here. */
@@ -332,6 +336,8 @@ export function WikiEntityArticle({
   description,
   wikiId,
   bouncerMode,
+  published,
+  publishedSlug,
   onSave,
   onSettingsClick: onSettingsClickProp,
   children,
@@ -393,8 +399,13 @@ export function WikiEntityArticle({
   const showSettings = !settingsOptedOut && hasSettingsTarget;
 
   const wikiSettingsPrefill = useMemo(
-    () => ({ ...wikiEntitySettingsPrefill({ title: displayTitle, chipLabel: displayChipLabel, description, promptOverride }), bouncerMode }),
-    [displayTitle, displayChipLabel, description, promptOverride, bouncerMode],
+    () => ({
+      ...wikiEntitySettingsPrefill({ title: displayTitle, chipLabel: displayChipLabel, description, promptOverride }),
+      bouncerMode,
+      published,
+      publishedSlug,
+    }),
+    [displayTitle, displayChipLabel, description, promptOverride, bouncerMode, published, publishedSlug],
   );
 
   const tabs = ["Read", "Edit", "View history"] as const;

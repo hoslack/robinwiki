@@ -26,7 +26,7 @@ import {
   type WikiTypeListItem,
 } from "@/hooks/useWikiTypesList";
 import { useToggleBouncerMode } from "@/hooks/useToggleBouncerMode";
-import { updateWiki } from "@/lib/generated";
+import { publishWiki, unpublishWiki, updateWiki } from "@/lib/generated";
 
 export type { WikiSettingsPrefill } from "@/lib/wikiSettingsPrefill";
 
@@ -101,6 +101,11 @@ export default function AddWikiModal({
   const prevWikiTypeRef = useRef<string>("");
   const [bouncerMode, setBouncerMode] = useState<"auto" | "review">("auto");
   const initialBouncerModeRef = useRef<"auto" | "review">("auto");
+  /** #255: publish toggle state inside settings modal. */
+  const [published, setPublished] = useState<boolean>(false);
+  const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
 
   const isSettingsView = Boolean(prefill);
 
@@ -145,6 +150,9 @@ export default function AddWikiModal({
           const bm = prefill.bouncerMode ?? "auto";
           setBouncerMode(bm);
           initialBouncerModeRef.current = bm;
+          setPublished(Boolean(prefill.published));
+          setPublishedSlug(prefill.publishedSlug ?? null);
+          setPublishError(null);
           setFieldsEditable(false);
         } else {
           setName("");
@@ -156,6 +164,9 @@ export default function AddWikiModal({
           prevWikiTypeRef.current = "";
           setBouncerMode("auto");
           initialBouncerModeRef.current = "auto";
+          setPublished(false);
+          setPublishedSlug(null);
+          setPublishError(null);
           setFieldsEditable(true);
         }
         setPromptDialogOpen(false);
@@ -519,6 +530,88 @@ export default function AddWikiModal({
                 disabled={locked}
                 size="sm"
               />
+            </div>
+          )}
+
+          {/* #255: Publish/unpublish toggle — settings mode only.
+              Calls the existing /wikis/:id/publish + /unpublish endpoints
+              eagerly (no save-button gating) so the toggle reflects the
+              live published state at all times. */}
+          {isSettingsView && wikiId && wikiId !== "preview" && (
+            <div className="px-5 pt-4 flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <FieldLabel>Publish</FieldLabel>
+                  <span className="text-[11px] leading-4" style={{ color: "#676d76" }}>
+                    {published
+                      ? "Public — anyone with the link can read this wiki"
+                      : "Private — only you can read this wiki"}
+                  </span>
+                </div>
+                <Switch
+                  aria-label="Publish wiki"
+                  checked={published}
+                  onCheckedChange={async (next: boolean) => {
+                    if (publishBusy) return;
+                    setPublishBusy(true);
+                    setPublishError(null);
+                    try {
+                      if (next) {
+                        const { data, error } = await publishWiki({
+                          path: { id: wikiId },
+                          credentials: "include",
+                        });
+                        if (error) throw new Error((error as { error?: string })?.error ?? "Publish failed");
+                        setPublished(true);
+                        setPublishedSlug(
+                          (data as { publishedSlug?: string } | undefined)?.publishedSlug ?? null,
+                        );
+                      } else {
+                        const { error } = await unpublishWiki({
+                          path: { id: wikiId },
+                          credentials: "include",
+                        });
+                        if (error) throw new Error((error as { error?: string })?.error ?? "Unpublish failed");
+                        setPublished(false);
+                      }
+                      await queryClient.invalidateQueries({ queryKey: ["wikis"] });
+                      await queryClient.invalidateQueries({ queryKey: ["wiki", wikiId] });
+                    } catch (err) {
+                      setPublishError(err instanceof Error ? err.message : "Toggle failed");
+                    } finally {
+                      setPublishBusy(false);
+                    }
+                  }}
+                  disabled={publishBusy}
+                  size="sm"
+                />
+              </div>
+              {published && publishedSlug ? (
+                <div
+                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1"
+                  style={{ background: "var(--surface-subtle)", border: "1px solid var(--btn-disabled-bg)" }}
+                >
+                  <span
+                    style={{ ...T.micro, color: "var(--input-label)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {`/p/${publishedSlug}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/p/${publishedSlug}`;
+                      void navigator.clipboard.writeText(url).catch(() => {});
+                    }}
+                    className="rounded px-2 text-[11px]"
+                    style={{ background: "transparent", border: "1px solid var(--btn-disabled-bg)", color: "var(--wiki-link)" }}
+                  >
+                    Copy link
+                  </button>
+                </div>
+              ) : null}
+              {publishError ? (
+                <span style={{ ...T.micro, color: "var(--destructive)" }}>{publishError}</span>
+              ) : null}
             </div>
           )}
 
