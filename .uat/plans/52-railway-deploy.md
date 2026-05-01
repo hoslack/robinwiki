@@ -117,7 +117,7 @@ if [ -f railpack.core.json ]; then
   start=$(jq -r '.deploy.startCommand // empty' railpack.core.json)
 
   if [ "$prov" = "node" ]; then pass "railpack.core.json provider == node"; else fail "railpack.core.json provider is '$prov'"; fi
-  if [ "$node" = "20" ]; then pass "railpack.core.json packages.node == 20"; else fail "railpack.core.json packages.node is '$node'"; fi
+  if [ "$node" = "22" ]; then pass "railpack.core.json packages.node == 22"; else fail "railpack.core.json packages.node is '$node'"; fi
   if echo "$install_cmd" | grep -q "pnpm install"; then pass "railpack.core.json install step has 'pnpm install'"; else fail "railpack.core.json install step missing 'pnpm install'"; fi
   if [ "$caslock_in_deploy" = "packages/caslock/node_modules" ]; then
     pass "railpack.core.json deploy includes packages/caslock/node_modules"
@@ -137,7 +137,7 @@ if [ -f railpack.wiki.json ]; then
   start=$(jq -r '.deploy.startCommand // empty' railpack.wiki.json)
 
   if [ "$prov" = "node" ]; then pass "railpack.wiki.json provider == node"; else fail "railpack.wiki.json provider is '$prov'"; fi
-  if [ "$node" = "20" ]; then pass "railpack.wiki.json packages.node == 20"; else fail "railpack.wiki.json packages.node is '$node'"; fi
+  if [ "$node" = "22" ]; then pass "railpack.wiki.json packages.node == 22"; else fail "railpack.wiki.json packages.node is '$node'"; fi
   if echo "$start" | grep -q 'next start -p \$PORT'; then
     pass "railpack.wiki.json deploy.startCommand contains 'next start -p \$PORT'"
   else
@@ -150,9 +150,9 @@ if [ -f package.json ]; then
   pkg_node=$(jq -r '.engines.node // empty' package.json)
   pkg_pnpm=$(jq -r '.packageManager // empty' package.json)
   if [ "$pkg_node" = ">=20.0.0" ]; then
-    pass "package.json engines.node == >=20.0.0 (matches railpack node:20)"
+    pass "package.json engines.node == >=20.0.0 (satisfies railpack node:22)"
   else
-    fail "package.json engines.node is '$pkg_node' (railpack pins node:20 — drift)"
+    fail "package.json engines.node is '$pkg_node' (railpack pins node:22 — must satisfy)"
   fi
   if [ "$pkg_pnpm" = "pnpm@10.15.1" ]; then
     pass "package.json packageManager == pnpm@10.15.1 (matches railpack corepack prepare)"
