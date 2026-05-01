@@ -8,6 +8,13 @@
       "when": 1777571058035,
       "tag": "0000_bootstrap",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778457600000,
+      "tag": "0001_wikis_people_embedding_retry_columns",
+      "breakpoints": true
     }
   ]
 }
