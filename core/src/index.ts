@@ -113,6 +113,44 @@ const faviconBuf = readFileSync(new URL('../assets/favicon.ico', import.meta.url
  * Admin and BullBoard routes apply their own session middleware.
  ***********************************************************************/
 
+// Backend-root landing page. Users who deploy via Railway and click the
+// core service's public URL thinking it's the wiki land here. Renders
+// WIKI_ORIGIN as a clickable link so they can find the actual app.
+// Does NOT echo INITIAL_USERNAME / INITIAL_PASSWORD — only names them.
+app.get('/', (c) => {
+  const rawOrigin = process.env.WIKI_ORIGIN ?? ''
+  const wikiUrl = rawOrigin.split(',')[0]?.trim() ?? ''
+  const esc = (s: string) =>
+    s.replace(
+      /[&<>"']/g,
+      (ch) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] ?? ch,
+    )
+  const wikiBlock = wikiUrl
+    ? `<p>Your Robin wiki is at <a href="${esc(wikiUrl)}">${esc(wikiUrl)}</a>. Visit it to get started.</p>`
+    : `<p>Your Robin wiki origin is not configured yet — set <code>WIKI_ORIGIN</code> in your env vars.</p>`
+  return c.html(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Robin · Backend API</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 560px; margin: 80px auto; padding: 0 24px; color: #222; line-height: 1.55; }
+  h1 { font-weight: 600; margin: 0 0 8px; }
+  .hint { color: #666; margin-top: 0; }
+  a { color: #0066cc; }
+  code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 0.95em; }
+</style>
+</head>
+<body>
+<h1>Hello.</h1>
+<p class="hint">You've reached the Robin <strong>Backend API</strong>. This isn't where the app lives.</p>
+${wikiBlock}
+<p>Log in with the <code>INITIAL_USERNAME</code> and <code>INITIAL_PASSWORD</code> you set in your env vars.</p>
+</body>
+</html>`)
+})
+
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString() }))
 app.get('/openapi.json', (c) => c.json(openapiSpec))
 // Favicon — MCP clients (and browsers hitting the core URL directly)
