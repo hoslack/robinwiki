@@ -175,11 +175,15 @@ Best for trying Robin out or running a hosted demo.
 ### Path B: Fork & deploy (recommended for personal use)
 
 1. [Fork this repo →](https://github.com/withrobinhq/robinwiki/fork)
-2. Click "Deploy on Railway" from your fork's README
+2. Click the `Deploy on Railway` button above — this uses the published template to provision postgres + redis + core + wiki with all env vars set.
+3. After the initial deploy completes, in each service's **Settings → Source**, change the connected GitHub repo from `withrobinhq/robinwiki` to your fork (`<your-username>/robinwiki`).
+4. Trigger a redeploy. Railway now pulls from your fork; future pushes to your fork auto-deploy.
 
-Connects to your fork. **You decide when to pull upstream updates, and you can edit the code.**
+**You decide when to pull upstream updates, and you can edit the code.**
 Best if you want stability or want to customize prompts, models, UI, etc.
 Trade-off: you have to occasionally `git pull upstream main` to get new features.
+
+> Why the extra step? The Railway template URL is hardcoded to deploy from upstream. Clicking the button by itself — even from your fork's README — provisions services that pull from `withrobinhq/robinwiki`. Re-pointing the source after the initial deploy is currently the cleanest way to keep the template's env-var pre-population while running off your fork.
 
 #### Keeping your fork in sync
 
