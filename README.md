@@ -166,7 +166,7 @@ pnpm --filter @robin/wiki openapi:generate
 
 ### Path A: Quick deploy (recommended for trying it out)
 
-[Deploy on Railway →](https://railway.com/deploy/1hBtzC?referralCode=55-uGO&utm_medium=integration&utm_source=template&utm_campaign=github)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/1hBtzC?referralCode=55-uGO&utm_medium=integration&utm_source=template&utm_campaign=github)
 
 Connects directly to this repo. Auto-updates whenever we push to `main`.
 **You can't customize the code, and your instance redeploys when we update upstream — including breaking changes.**
