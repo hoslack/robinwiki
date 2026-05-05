@@ -205,23 +205,6 @@ The workspace packages (`@robin/agent`, `@robin/queue`, `@robin/shared`, `@robin
 
 Work on feature branches. Create a GitHub issue before starting work, then open a PR that references the issue.
 
-## Milestones
-
-| # | Milestone | Status |
-|---|-----------|--------|
-| M1 | Foundation — repo scaffold, schema, single-user auth | Done |
-| M2 | Ingest Pipeline — 6-stage pipeline with inline-async | Done |
-| M3 | Wiki Composition — 10 wiki types with quality gates | Done |
-| M4 | Search — hybrid two-layer retrieval with RRF fusion | Done |
-| M5 | MCP Server — 15 tools for AI client integration | Done |
-| M6 | API Routes — REST API with wiki governance | Done |
-| M7 | Frontend Integration — Wikipedia-style web UI | Done |
-| M8 | Deploy & Ship — one-click deployment | Open |
-| M9 | Audit Log — append-only event store with timeline views | Done |
-| M10 | Interconnectivity & Trust Gates — wiki linking, source quality | Done |
-
-Track progress: [GitHub Issues](https://github.com/withrobinhq/robin/issues)
-
 ## License
 
 Private. All rights reserved.
