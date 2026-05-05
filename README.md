@@ -17,6 +17,7 @@ Talk to Robin through Claude Desktop, the web, or any MCP client. It listens, br
   - [Strategy 3 — Standalone (Eject)](#strategy-3--standalone-eject)
 - [Local Setup](#local-setup)
 - [Environment Variables](#environment-variables)
+- [Account password](#account-password)
 - [MCP Tools](#mcp-tools)
 - [API](#api)
 - [Scripts](#scripts)
@@ -203,6 +204,15 @@ All variables live in `core/.env`. See `core/.env.example` for the canonical tem
 | `LOG_LEVEL` | No | `info` | Pino log level (`trace`/`debug`/`info`/`warn`/`error`/`fatal`) |
 | `WIKI_CLASSIFY_THRESHOLD` | No | `0.65` | LLM confidence threshold for filing fragments (0.0–1.0) |
 | `ENABLE_BATCH_REGEN` | No | `true` | Enable midnight batch wiki regeneration cron |
+
+## Account password
+
+Robin is single-user. Your password is set from `INITIAL_PASSWORD` on first boot — the env validator requires it to be at least 6 characters. Two ways to change it later:
+
+- **Logged in:** open `/profile` → **Change password**. Uses better-auth's standard flow; you'll need your current password.
+- **Locked out:** open `/recover` (public page). Paste the value of `BETTER_AUTH_SECRET` from your server env. The endpoint resets the account password to whatever `INITIAL_PASSWORD` is currently set to on the server — so to choose a new password this way: update `INITIAL_PASSWORD` on Railway, redeploy, then hit `/recover`. Rate-limited to 5 attempts per minute.
+
+There's no email-based reset. Robin assumes the operator owns the env vars; that's the recovery surface.
 
 ## MCP Tools
 
