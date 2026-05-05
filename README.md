@@ -164,28 +164,54 @@ pnpm --filter @robin/wiki openapi:generate
 
 ## Deploy
 
-### Path A: Quick deploy (recommended for trying it out)
+We've optimized deployments for Railway. Three strategies, in increasing order of independence:
+
+| Strategy | Setup | Auto-updates | Customizable | Best for |
+|---|---|---|---|---|
+| **1. Template** (easy) | ~2 min | Yes — from upstream | No | Trying it out, hosted demos |
+| **2. Fork + Re-point** | ~5 min | Via Railway's `Check for updates` | Yes | Personal use with optional upstream tracking |
+| **3. Standalone (Eject)** | ~15 min | Manual `git pull` | Yes | Private instance, derivative product |
+
+### Strategy 1 — Template
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/1hBtzC?referralCode=55-uGO&utm_medium=integration&utm_source=template&utm_campaign=github)
 
-Connects directly to this repo. Auto-updates whenever we push to `main`.
+Connects directly to upstream. Auto-updates whenever we push to `main`.
 **You can't customize the code, and your instance redeploys when we update upstream — including breaking changes.**
 Best for trying Robin out or running a hosted demo.
 
-### Path B: Fork & deploy (recommended for personal use)
+### Strategy 2 — Fork + Re-point
 
 1. [Fork this repo →](https://github.com/withrobinhq/robinwiki/fork)
-2. Click the `Deploy on Railway` button above — this uses the published template to provision postgres + redis + core + wiki with all env vars set.
-3. After the initial deploy completes, in each service's **Settings → Source**, change the connected GitHub repo from `withrobinhq/robinwiki` to your fork (`<your-username>/robinwiki`).
-4. Trigger a redeploy. Railway now pulls from your fork; future pushes to your fork auto-deploy.
+2. Click the `Deploy on Railway` button above. This uses the published template to provision postgres + redis + `@robin/core` + `@robin/wiki` with all env vars pre-populated.
+3. After the initial deploy completes, open each of `@robin/core` and `@robin/wiki` in turn. In **Settings → Source**, change the connected `Source Repo` from `withrobinhq/robinwiki` to your fork (`<your-username>/robinwiki`). Leave `Upstream Repo` alone — that's what powers Railway's `Check for updates` flow, which surfaces upstream changes as PRs against your fork.
+4. Trigger a redeploy on each service. Railway now pulls from your fork; future pushes to your fork auto-deploy.
+
+<!-- TODO: screenshot of Settings → Source panel with Source Repo field annotated -->
 
 **You decide when to pull upstream updates, and you can edit the code.**
-Best if you want stability or want to customize prompts, models, UI, etc.
-Trade-off: you have to occasionally `git pull upstream main` to get new features.
+Best if you want stability with optional upstream tracking, or want to customize prompts, models, UI, etc.
 
-> Why the extra step? The Railway template URL is hardcoded to deploy from upstream. Clicking the button by itself — even from your fork's README — provisions services that pull from `withrobinhq/robinwiki`. Re-pointing the source after the initial deploy is currently the cleanest way to keep the template's env-var pre-population while running off your fork.
+> Why this works: the Railway template URL is hardcoded to deploy from upstream. Clicking the button alone — even from your fork's README — provisions services that pull from `withrobinhq/robinwiki`. Re-pointing the source after the initial deploy is the cleanest way to keep the template's env-var pre-population while running off your fork.
 
-#### Keeping your fork in sync
+### Strategy 3 — Standalone (Eject)
+
+Most independence, most setup. You own everything end-to-end — no upstream tracking, no `Check for updates` flow.
+
+1. Fork or clone the repo.
+2. Create a new Railway project (don't use the template).
+3. Add a Postgres service — set the source image to `pgvector/pgvector:pg17`.
+4. Add a Redis service — Railway's default Redis works.
+5. Add a service for `@robin/core`: **Deploy from GitHub repo** → select your fork. Then in **Settings → Build → Railway Config File**, set the path to `railpack.core.json`.
+6. Add a service for `@robin/wiki`: same flow, with `railpack.wiki.json`.
+7. Set env vars manually for all four services — see `core/.env.example` or copy from a working template-based deploy.
+8. Trigger initial deploy.
+
+<!-- TODO: screenshot of Settings → Build → Railway Config File field -->
+
+Trade-off: ~10 extra minutes of env-var setup that strategies 1 + 2 skip. No `Check for updates` — pull upstream changes by hand via `git pull`.
+
+#### Keeping your fork in sync (Strategies 2 + 3)
 
 ```bash
 git remote add upstream https://github.com/withrobinhq/robinwiki.git
