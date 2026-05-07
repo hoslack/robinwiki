@@ -1,0 +1,227 @@
+name: Pre-merge
+
+# Three-job CI gate (Phase A2): a PR that breaks deploy cannot merge to main.
+#   1. db:push against ephemeral Postgres — fails on destructive-op warnings.
+#   2. Core boot health — start core against ephemeral Postgres + Redis, hit /health.
+#   3. Wiki build against core's /openapi.json artifact — fails on type mismatch.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: pre-merge-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─── Job 1: db push ──────────────────────────────────────────────────────
+  db-push:
+    name: db:push (ephemeral Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: robin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robin_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages (drizzle imports schema from @robin/shared etc.)
+        run: pnpm --filter './packages/*' --filter @robin/core build
+
+      - name: pgvector extension (best-effort)
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d robin_ci \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+
+      # drizzle-kit push --force is the non-interactive variant. We capture
+      # both stdout and stderr and grep for the destructive-op warnings drizzle
+      # prints when push would drop or rename data.
+      - name: drizzle-kit push (fail on destructive-op warnings)
+        working-directory: core
+        run: |
+          set -o pipefail
+          pnpm exec drizzle-kit push --force 2>&1 | tee push.log
+          if grep -E "(WILL TRUNCATE|WILL DROP|WILL RENAME|WILL DELETE|destructive)" -i push.log; then
+            echo "::error::drizzle-kit push reported destructive operations — failing CI."
+            exit 1
+          fi
+
+  # ─── Job 2: core boot health ─────────────────────────────────────────────
+  core-boot-health:
+    name: core boot health (/health)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: db-push
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: robin_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/robin_ci
+      REDIS_URL: redis://localhost:6379
+      BETTER_AUTH_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      MASTER_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      KEY_ENCRYPTION_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      JOB_SIGNING_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      RECOVERY_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      INITIAL_USERNAME: ci@robin.test
+      INITIAL_PASSWORD: ci-password-123
+      OPENROUTER_API_KEY: sk-or-ci-fake
+      WIKI_ORIGIN: http://localhost:3000
+      SERVER_PUBLIC_URL: http://localhost:3000
+      NODE_ENV: development
+      PORT: 3000
+      ENABLE_BATCH_REGEN: 'false'
+      ENABLE_EMBEDDING_RETRY: 'false'
+      ENABLE_PIPELINE_EVENT_PRUNE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm --filter './packages/*' --filter @robin/core build
+
+      - name: pgvector extension
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d robin_ci \
+            -c "CREATE EXTENSION IF NOT EXISTS vector;" || true
+
+      - name: Start core (background) and probe /health
+        run: |
+          set -e
+          pnpm --filter @robin/core start &
+          CORE_PID=$!
+          echo "core started as pid=$CORE_PID"
+          # Poll /health for up to 30s.
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/health || echo 000)
+            if [ "$CODE" = "200" ]; then
+              echo "core /health 200 after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::core /health did not return 200 within 30s"
+          # Kill so workflow doesn't hang
+          kill $CORE_PID || true
+          exit 1
+
+      - name: Generate openapi manifest artifact
+        run: pnpm --filter @robin/core openapi:manifest
+
+      - name: Upload openapi manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-manifest
+          path: core/openapi.json
+          if-no-files-found: error
+
+  # ─── Job 3: wiki build against core's openapi manifest ───────────────────
+  wiki-build:
+    name: wiki build against core /openapi.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: core-boot-health
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Download core openapi manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: openapi-manifest
+          path: core
+
+      # Wiki's openapi-ts config pulls input from `${ROBIN_SERVER}/openapi.json`
+      # via HTTP. In CI we don't run a server — we serve the artifact via a
+      # static file URL using a python one-liner so openapi-ts can fetch it.
+      - name: Serve manifest locally for openapi-ts
+        run: |
+          cd core
+          python3 -m http.server 9090 &
+          SERVE_PID=$!
+          echo "SERVE_PID=$SERVE_PID" >> $GITHUB_ENV
+          for i in $(seq 1 10); do
+            if curl -s -o /dev/null http://localhost:9090/openapi.json; then break; fi
+            sleep 1
+          done
+
+      - name: Generate wiki API client from artifact
+        env:
+          ROBIN_SERVER: http://localhost:9090
+        run: pnpm --filter @robin/wiki manifest
+
+      - name: Build wiki (fails on type mismatch with core's surface)
+        run: pnpm --filter @robin/wiki build
+
+      - name: Stop static server
+        if: always()
+        run: kill $SERVE_PID || true
