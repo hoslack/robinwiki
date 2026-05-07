@@ -130,7 +130,7 @@ export const publishWikiResponseSchema = z.object({
   published: z.boolean(),
   publishedSlug: z.string().nullable(),
   publishedAt: z.coerce.date().nullable(),
-  publishedOrigin: z.string().nullable(),
+  publishedOrigin: z.string().nullable().default(null),
   regenerate: z.boolean(),
 })
 

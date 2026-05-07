@@ -29,6 +29,10 @@ import { hybridSearch } from '../lib/search.js'
 import { searchResponseSchema } from '../schemas/search.schema.js'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { emitAuditEvent } from '../db/audit.js'
+import {
+  attachAliasesToServer as _attachAliasesToServer,
+  type CanonicalToolCallback,
+} from './alias-registry.js'
 
 export type { McpServerDeps }
 
@@ -47,6 +51,23 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     name: 'robin-mcp',
     version: '1.0.0',
   })
+
+  // Stream I Phases 5+6 -- skill-pack alias registry. Capture every
+  // canonical tool's callback as it registers so the alias resolver
+  // can route alias calls (e.g. `/short-capture`) into the canonical
+  // implementation (e.g. `log_entry`) without re-importing handlers.
+  const canonicalCallbacks = new Map<string, CanonicalToolCallback>()
+  const _origRegisterTool = server.registerTool.bind(server)
+  server.registerTool = ((
+    name: string,
+    config: Parameters<typeof server.registerTool>[1],
+    cb: Parameters<typeof server.registerTool>[2]
+  ) => {
+    canonicalCallbacks.set(name, cb as unknown as CanonicalToolCallback)
+    return _origRegisterTool(name, config, cb)
+  }) as typeof server.registerTool
+  ;(server as unknown as { _canonicalCallbacks?: Map<string, CanonicalToolCallback> })._canonicalCallbacks =
+    canonicalCallbacks
 
   const resolverDeps: McpResolverDeps = {
     db: deps.db,
@@ -774,4 +795,22 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
   )
 
   return server
+}
+
+/**
+ * Attach skill-pack aliases to a freshly-created MCP server. Called by
+ * `routes/mcp.ts` between `createMcpServer` and `server.connect` so the
+ * alias rows are visible on the very first `listTools` call from the
+ * client. Exposed as a separate async helper to keep the synchronous
+ * shape of `createMcpServer` (preserves the test harness).
+ */
+export async function attachAliases(
+  server: McpServer,
+  db: import('../db/client.js').DB
+): Promise<number> {
+  const map = (
+    server as unknown as { _canonicalCallbacks?: Map<string, CanonicalToolCallback> }
+  )._canonicalCallbacks
+  if (!map) return 0
+  return _attachAliasesToServer(server, db, map)
 }
