@@ -59,6 +59,24 @@ import { applyFragmentTitleDatePrefix } from '../lib/fragmentTitlePrefix.js'
 const log = logger.child({ component: 'mcp' })
 
 /**
+ * Read the MCP `clientInfo` snapshot off the deps and shape it for
+ * `auditLog.detail.source_client`. Returns `undefined` if the deps don't
+ * carry the accessor (legacy callers, tests) or if the handshake has not
+ * yet populated client info. The caller spreads the result into the audit
+ * detail object -- keeping the field absent (vs `null`) means non-MCP
+ * writes don't pick up a junk-drawer key.
+ */
+function readSourceClient(deps: McpServerDeps): McpClientInfo | undefined {
+  try {
+    const info = deps.getClientInfo?.()
+    if (!info?.name) return undefined
+    return info.version ? { name: info.name, version: info.version } : { name: info.name }
+  } catch {
+    return undefined
+  }
+}
+
+/**
  * Dependency injection interface shared by both handlers and
  * {@link createMcpServer}. Wired in `routes/mcp.ts` at request time.
  *
@@ -73,12 +91,32 @@ const log = logger.child({ component: 'mcp' })
  * @property entityExtractCall     - LLM call for people extraction (fail-open)
  * @property loadUserPeople        - Loads known people for fuzzy name matching
  */
+/**
+ * MCP `clientInfo` handshake snapshot (#UAT Finding 11). Populated lazily
+ * by {@link createMcpServer}; reads forwarded by `routes/mcp.ts` so handlers
+ * can stamp every write with `{ name, version }` of the originating client.
+ *
+ * `version` is optional because the MCP SDK's `Implementation` type only
+ * mandates `name`; a few in-the-wild clients omit version.
+ */
+export interface McpClientInfo {
+  name: string
+  version?: string
+}
+
 export interface McpServerDeps {
   producer: BullMQProducer
   db: DB
   spawnWriteWorker: (userId: string) => void
   entityExtractCall: (system: string, user: string) => Promise<PeopleExtractionOutput>
   loadUserPeople: (userId: string) => Promise<KnownPerson[]>
+  /**
+   * Lazy accessor for the MCP `clientInfo` handshake. Returns `undefined`
+   * before the transport handshake completes (or for non-MCP callers in
+   * tests). Persisted into audit-event `detail.source_client` and -- once
+   * Stream C2 lands the schema migration -- onto `entries.source_client`.
+   */
+  getClientInfo?: () => McpClientInfo | undefined
 }
 
 /**
@@ -150,13 +188,18 @@ export async function handleLogEntry(
     }
     await deps.producer.enqueueExtraction(job)
 
+    const sourceClient = readSourceClient(deps)
     await emitAuditEvent(deps.db, {
       entityType: 'raw_source',
       entityId: entryKey,
       eventType: 'ingested',
       source: entrySource,
       summary: `Entry ingested: ${title}`,
-      detail: { entryKey, source: entrySource },
+      detail: {
+        entryKey,
+        source: entrySource,
+        ...(sourceClient ? { source_client: sourceClient } : {}),
+      },
     })
 
     deps.spawnWriteWorker(userId)
@@ -360,13 +403,19 @@ export async function handleLogFragment(
       .set({ state: 'PENDING', updatedAt: now })
       .where(eq(wikisTable.lookupKey, threadResult.lookupKey))
 
+    const sourceClient = readSourceClient(deps)
     await emitAuditEvent(deps.db, {
       entityType: 'fragment',
       entityId: fragKey,
       eventType: 'created',
       source: 'mcp',
       summary: `Fragment created: ${title}`,
-      detail: { fragmentKey: fragKey, wikiKey: threadResult.lookupKey, threadSlug: threadResult.slug },
+      detail: {
+        fragmentKey: fragKey,
+        wikiKey: threadResult.lookupKey,
+        threadSlug: threadResult.slug,
+        ...(sourceClient ? { source_client: sourceClient } : {}),
+      },
     })
 
     const result = {
@@ -466,13 +515,18 @@ export async function handleCreateWikiType(
       })
       .returning()
 
+    const sourceClient = readSourceClient(deps)
     await emitAuditEvent(deps.db, {
       entityType: 'wiki_type',
       entityId: slug,
       eventType: 'created',
       source: 'mcp',
       summary: `Wiki type created: ${input.name.trim()}`,
-      detail: { slug, name: input.name.trim() },
+      detail: {
+        slug,
+        name: input.name.trim(),
+        ...(sourceClient ? { source_client: sourceClient } : {}),
+      },
     })
 
     return {
@@ -610,13 +664,19 @@ export async function handleCreateWiki(
       )
     }
 
+    const sourceClient = readSourceClient(deps)
     await emitAuditEvent(deps.db, {
       entityType: 'wiki',
       entityId: lookupKey,
       eventType: 'created',
       source: 'mcp',
       summary: `Wiki created: ${input.title.trim()}`,
-      detail: { wikiKey: lookupKey, type: resolvedType, inferred: false },
+      detail: {
+        wikiKey: lookupKey,
+        type: resolvedType,
+        inferred: false,
+        ...(sourceClient ? { source_client: sourceClient } : {}),
+      },
     })
 
     const result = {
@@ -717,13 +777,18 @@ export async function handleEditWiki(
       source: 'mcp',
     })
 
+    const sourceClient = readSourceClient(deps)
     await emitAuditEvent(deps.db, {
       entityType: 'wiki',
       entityId: wiki.lookupKey,
       eventType: 'edited',
       source: 'mcp',
       summary: `Wiki edited via MCP: ${wiki.slug}`,
-      detail: { wikiKey: wiki.lookupKey, wikiSlug: wiki.slug },
+      detail: {
+        wikiKey: wiki.lookupKey,
+        wikiSlug: wiki.slug,
+        ...(sourceClient ? { source_client: sourceClient } : {}),
+      },
     })
 
     const result = { wikiSlug: wiki.slug, lookupKey: wiki.lookupKey, recorded: true }

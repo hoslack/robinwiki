@@ -52,6 +52,22 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     db: deps.db,
   }
 
+  // ── MCP clientInfo handshake snapshot (UAT Finding 11 / Phase 2) ──
+  // Stamps every MCP write with `{ name, version }` of the originating
+  // client. The handshake completes during `server.connect(transport)`,
+  // *after* this factory returns, so the deps closure (constructed in
+  // `routes/mcp.ts`) reads it lazily via `getClientInfo()`. We bind that
+  // accessor to the underlying `Server` instance here so handlers and
+  // tool callbacks can both reach it without re-plumbing.
+  if (!deps.getClientInfo) {
+    deps.getClientInfo = () => {
+      const v = server.server.getClientVersion()
+      if (!v?.name) return undefined
+      const version = typeof v.version === 'string' ? v.version : undefined
+      return version ? { name: v.name, version } : { name: v.name }
+    }
+  }
+
   /***********************************************************************
    * ## Tools — Write operations
    ***********************************************************************/
@@ -602,13 +618,20 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           })
           .returning()
 
+        const ci = deps.getClientInfo?.()
         await emitAuditEvent(deps.db, {
           entityType: 'group',
           entityId: group.id,
           eventType: 'created',
           source: 'mcp',
           summary: `Group created: ${name}`,
-          detail: { groupId: group.id, slug },
+          detail: {
+            groupId: group.id,
+            slug,
+            ...(ci?.name
+              ? { source_client: ci.version ? { name: ci.name, version: ci.version } : { name: ci.name } }
+              : {}),
+          },
         })
 
         return { content: [{ type: 'text' as const, text: JSON.stringify(group) }] }
@@ -659,6 +682,22 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           .insert(groupWikis)
           .values({ groupId, wikiId })
           .onConflictDoNothing()
+
+        const ci = deps.getClientInfo?.()
+        await emitAuditEvent(deps.db, {
+          entityType: 'group',
+          entityId: groupId,
+          eventType: 'wiki_added',
+          source: 'mcp',
+          summary: `Wiki added to group: ${wikiId} -> ${groupId}`,
+          detail: {
+            groupId,
+            wikiId,
+            ...(ci?.name
+              ? { source_client: ci.version ? { name: ci.name, version: ci.version } : { name: ci.name } }
+              : {}),
+          },
+        })
 
         return {
           content: [{ type: 'text' as const, text: JSON.stringify({ ok: true, groupId, wikiId }) }],
