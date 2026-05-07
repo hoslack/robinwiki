@@ -365,24 +365,9 @@ export const edits = pgTable(
 // is the synthetic question/answer pair Stream G writes when the wiki has
 // fragments to summarise. Unique (wiki_id, kind) so refreshing a kind is
 // an UPDATE, not a second INSERT.
-export const wikiAgentSchema = pgTable(
-  'wiki_agent_schema',
-  {
-    id: text('id')
-      .primaryKey()
-      .$defaultFn(() => nanoid()),
-    wikiId: text('wiki_id').notNull(),
-    kind: text('kind').notNull(),
-    content: text('content').notNull().default(''),
-    embedding: vector('embedding', { dimensions: 1536 }),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  },
-  (t) => [
-    uniqueIndex('wiki_agent_schema_wiki_kind_uidx').on(t.wikiId, t.kind),
-    index('wiki_agent_schema_wiki_id_idx').on(t.wikiId),
-  ],
-)
+// `wikiAgentSchema` is owned by Stream G (PR #326). D6 empty-wiki bootstrap
+// is deferred to a follow-up PR after G merges, which will write the
+// kind='description' row from wikis.description into Stream G's schema.
 
 // ─── Edges ───
 

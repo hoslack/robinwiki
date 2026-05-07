@@ -216,52 +216,20 @@ RUN_AUDIT=$(psql "$DATABASE_URL" -t -A -c \
   | tr -d '[:space:]')
 [ "$RUN_AUDIT" -ge 1 ] && pass "5c. audit_log row exists for jobId=$JOB_ID (count=$RUN_AUDIT)" || fail "5c. no audit_log row for jobId=$JOB_ID"
 
-# ── 6. D6 — Empty-wiki bootstrap ────────────────────────────────────
-# Create a wiki with zero fragments, assert wiki_agent_schema row with
-# kind='description' exists, content matches wikis.description.
+# ── 6. D6 — Empty-wiki bootstrap (DEFERRED to follow-up) ──────────
+# D6 was originally scoped to write a kind='description' row into
+# wiki_agent_schema on POST /wikis. Stream G owns wiki_agent_schema
+# (PR #326) and the schema shape changed late in v0.2.0 planning
+# (wiki_key + generator_version primary key, not the wiki_id shape D
+# originally implemented). Rather than ship a colliding migration, D6
+# is deferred to a follow-up PR that lands AFTER G merges to main.
+# The follow-up writes the kind='description' row using G's exact
+# shape with generator_version='hyde_v1'.
 
-WIKI_DESC="UAT 62 empty-wiki bootstrap test ($UAT_TAG)"
-WIKI_RESP=$(curl -s -X POST -b "$COOKIE_JAR" \
-  -H "Content-Type: application/json" \
-  -H "Origin: http://localhost:3000" \
-  -d "{\"name\":\"UAT 62 Wiki $UAT_TAG\",\"description\":\"$WIKI_DESC\",\"type\":\"log\"}" \
-  "$SERVER_URL/wikis")
-WIKI_ID=$(echo "$WIKI_RESP" | jq -r '.id // .lookupKey // ""')
-[ -n "$WIKI_ID" ] && pass "6a. Created wiki (id=$WIKI_ID)" || fail "6a. Could not create wiki: $WIKI_RESP"
-
-# wiki_agent_schema row with kind='description' exists.
-WAS_COUNT=$(psql "$DATABASE_URL" -t -A -c \
-  "SELECT COUNT(*) FROM wiki_agent_schema WHERE wiki_id='$WIKI_ID' AND kind='description'" \
-  | tr -d '[:space:]')
-if [ "$WAS_COUNT" = "1" ]; then
-  pass "6b. wiki_agent_schema kind='description' row created (count=$WAS_COUNT)"
-else
-  # Bootstrap is best-effort (depends on OpenRouter availability). Flag
-  # explicitly so we can disambiguate "missing" from "embed unavailable".
-  if [ "$WAS_COUNT" = "0" ]; then
-    skip "6b. wiki_agent_schema row missing — likely OpenRouter unavailable in CI"
-  else
-    fail "6b. wiki_agent_schema row count: expected 1, got $WAS_COUNT"
-  fi
-fi
-
-# Content matches the description we sent.
-WAS_CONTENT=$(psql "$DATABASE_URL" -t -A -c \
-  "SELECT content FROM wiki_agent_schema WHERE wiki_id='$WIKI_ID' AND kind='description' LIMIT 1")
-if [ "$WAS_CONTENT" = "$WIKI_DESC" ]; then
-  pass "6c. wiki_agent_schema content matches wikis.description"
-elif [ -z "$WAS_CONTENT" ]; then
-  skip "6c. no row to compare (see 6b)"
-else
-  fail "6c. wiki_agent_schema content mismatch: '$WAS_CONTENT' != '$WIKI_DESC'"
-fi
-
-# No kind='hyde_synthetic' row yet — that's Stream G's lane and only fires
-# once the wiki has fragments.
-HYDE_COUNT=$(psql "$DATABASE_URL" -t -A -c \
-  "SELECT COUNT(*) FROM wiki_agent_schema WHERE wiki_id='$WIKI_ID' AND kind='hyde_synthetic'" \
-  | tr -d '[:space:]')
-[ "$HYDE_COUNT" = "0" ] && pass "6d. no kind='hyde_synthetic' row yet (empty wiki)" || fail "6d. unexpected hyde_synthetic row on empty wiki: $HYDE_COUNT"
+skip "6a. D6 deferred to follow-up PR (depends on G #326 landing first)"
+skip "6b. D6 wiki_agent_schema row check deferred"
+skip "6c. D6 content match check deferred"
+skip "6d. D6 no-hyde_synthetic check deferred"
 
 # ── Summary ─────────────────────────────────────────────────────────
 echo ""

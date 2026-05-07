@@ -5,7 +5,7 @@ import { generateSlug, makeLookupKey } from '@robin/shared'
 import { NoOpenRouterKeyError, embedText } from '@robin/agent'
 import { sessionMiddleware } from '../middleware/session.js'
 import { db } from '../db/client.js'
-import { wikis, edges, wikiTypes, fragments, people, auditLog, edits, groupWikis, groups, wikiAgentSchema } from '../db/schema.js'
+import { wikis, edges, wikiTypes, fragments, people, auditLog, edits, groupWikis, groups } from '../db/schema.js'
 import { resolveWikiSlug } from '../db/slug.js'
 import { inferWikiType } from '../mcp/wiki-type-inference.js'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
@@ -200,29 +200,11 @@ wikisRouter.post('/', zValidator('json', createWikiBodySchema, validationHook), 
         .set({ embedding: wikiVec })
         .where(eq(wikis.lookupKey, lookupKey))
 
-      // Stream D / D6 — empty-wiki bootstrap. Brand-new wikis have zero
-      // fragments to summarise, so the machine-side retrieval index gets
-      // its bootstrap signal from wikis.description. Stream G's
-      // kind='hyde_synthetic' row is layered on later when the wiki has
-      // fragments. The unique (wiki_id, kind) index makes this idempotent
-      // — re-running INSERT...DO UPDATE refreshes the description text
-      // and embedding when the user edits the wiki.
-      await db
-        .insert(wikiAgentSchema)
-        .values({
-          wikiId: lookupKey,
-          kind: 'description',
-          content: body.description ?? '',
-          embedding: wikiVec,
-        })
-        .onConflictDoUpdate({
-          target: [wikiAgentSchema.wikiId, wikiAgentSchema.kind],
-          set: {
-            content: body.description ?? '',
-            embedding: wikiVec,
-            updatedAt: new Date(),
-          },
-        })
+      // D6 (empty-wiki bootstrap) is deferred to a follow-up PR. Stream G's
+      // wiki_agent_schema table (PR #326) is the destination; this slice
+      // requires G to merge first so the schema is in main. Once G is in,
+      // a follow-up writes a kind='description' row here using G's shape
+      // (wiki_key + content + embedding + generator_version='hyde_v1').
 
       const candidates = await db
         .select({
