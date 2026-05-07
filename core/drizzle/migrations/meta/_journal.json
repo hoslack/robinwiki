@@ -36,6 +36,13 @@
       "when": 1778457602000,
       "tag": "0004_edits_before_after_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778457603000,
+      "tag": "0005_wiki_agent_schema",
+      "breakpoints": true
     }
   ]
 }

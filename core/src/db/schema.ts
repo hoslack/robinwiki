@@ -357,6 +357,33 @@ export const edits = pgTable(
   (t) => [index('edits_object_idx').on(t.objectType, t.objectId)]
 )
 
+// ─── Wiki Agent Schema (Stream D/G — machine-side retrieval index) ───
+//
+// Per-wiki rows describing what the machine indexes for retrieval.
+// `kind='description'` is the bootstrap signal populated from
+// wikis.description on wiki create (Stream D / D6). `kind='hyde_synthetic'`
+// is the synthetic question/answer pair Stream G writes when the wiki has
+// fragments to summarise. Unique (wiki_id, kind) so refreshing a kind is
+// an UPDATE, not a second INSERT.
+export const wikiAgentSchema = pgTable(
+  'wiki_agent_schema',
+  {
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => nanoid()),
+    wikiId: text('wiki_id').notNull(),
+    kind: text('kind').notNull(),
+    content: text('content').notNull().default(''),
+    embedding: vector('embedding', { dimensions: 1536 }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex('wiki_agent_schema_wiki_kind_uidx').on(t.wikiId, t.kind),
+    index('wiki_agent_schema_wiki_id_idx').on(t.wikiId),
+  ],
+)
+
 // ─── Edges ───
 
 export const edges = pgTable(
