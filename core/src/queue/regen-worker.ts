@@ -6,6 +6,7 @@ import { regenerateWiki } from '../lib/regen.js'
 import { producer } from './producer.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
+import { emitPipelineEvent } from '../db/pipeline-events.js'
 
 const log = logger.child({ component: 'regen-worker' })
 
@@ -18,6 +19,21 @@ export async function processRegenJob(job: RegenJob): Promise<JobResult> {
   log.info({ jobId: job.jobId, wikiKey: job.objectKey }, 'processing regen job')
   const t0 = performance.now()
 
+  // Regen jobs key on wikiKey, not entryKey — pass null entryKey, surface the
+  // wiki context via metadata so /admin/diagnose by entryKey still finds it
+  // through the audit_log/job_id join.
+  await emitPipelineEvent(db as never, {
+    entryKey: null,
+    jobId: job.jobId,
+    stage: 'regen',
+    status: 'started',
+    metadata: {
+      wikiKey: job.objectKey,
+      objectType: job.objectType,
+      triggeredBy: job.triggeredBy,
+    },
+  })
+
   try {
     const result = await regenerateWiki(db, job.objectKey)
     const elapsed = Math.round(performance.now() - t0)
@@ -25,6 +41,17 @@ export async function processRegenJob(job: RegenJob): Promise<JobResult> {
       { jobId: job.jobId, wikiKey: job.objectKey, fragmentCount: result.fragmentCount, ms: elapsed, timing: result.timing },
       'regen job completed'
     )
+    await emitPipelineEvent(db as never, {
+      entryKey: null,
+      jobId: job.jobId,
+      stage: 'regen',
+      status: 'completed',
+      metadata: {
+        wikiKey: job.objectKey,
+        fragmentCount: result.fragmentCount,
+        durationMs: elapsed,
+      },
+    })
     return {
       jobId: job.jobId,
       success: true,
@@ -34,6 +61,17 @@ export async function processRegenJob(job: RegenJob): Promise<JobResult> {
     const elapsed = Math.round(performance.now() - t0)
     const message = err instanceof Error ? err.message : String(err)
     log.error({ jobId: job.jobId, wikiKey: job.objectKey, error: message, ms: elapsed }, 'regen job failed')
+    await emitPipelineEvent(db as never, {
+      entryKey: null,
+      jobId: job.jobId,
+      stage: 'regen',
+      status: 'failed',
+      metadata: {
+        wikiKey: job.objectKey,
+        error: message,
+        durationMs: elapsed,
+      },
+    })
     return {
       jobId: job.jobId,
       success: false,
