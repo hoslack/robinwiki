@@ -347,6 +347,12 @@ export const edits = pgTable(
     content: text('content').notNull(),
     source: text('source').notNull().default('user'),
     diff: text('diff').notNull().default(''),
+    // Stream D / D1' — fragment edit audit. PUT /fragments/:id writes the
+    // pre-edit content into `contentBefore` and the post-edit content into
+    // `contentAfter`. The existing wiki-edit pattern in content.ts still
+    // populates only `content`; both columns stay nullable so they coexist.
+    contentBefore: text('content_before'),
+    contentAfter: text('content_after'),
   },
   (t) => [index('edits_object_idx').on(t.objectType, t.objectId)]
 )
