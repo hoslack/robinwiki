@@ -1,5 +1,5 @@
-import { assertProdEnv, ProdSafetyError } from './env.js'
 import { logger } from '../lib/logger.js'
+import { ProdSafetyError, assertProdEnv } from './env.js'
 
 export { ProdSafetyError } from './env.js'
 
@@ -68,9 +68,7 @@ const defaultChecks: SafetyCheck[] = [
  * of {name, run} pairs to exercise the aggregator without monkey-patching
  * a module-level const.
  */
-export async function assertProdSafety(
-  checks: SafetyCheck[] = defaultChecks,
-): Promise<void> {
+export async function assertProdSafety(checks: SafetyCheck[] = defaultChecks): Promise<void> {
   const failures: { name: string; err: unknown }[] = []
   for (const check of checks) {
     try {
@@ -89,17 +87,14 @@ export async function assertProdSafety(
 
   if (isProd) {
     const aggregated = new ProdSafetyError(
-      `${failures.length} prod-safety check(s) failed:\n${summary}`,
+      `${failures.length} prod-safety check(s) failed:\n${summary}`
     )
-    logger.fatal(
-      { failures: failures.map((f) => f.name) },
-      aggregated.message,
-    )
+    logger.fatal({ failures: failures.map((f) => f.name) }, aggregated.message)
     throw aggregated
   }
 
   logger.warn(
     { failures: failures.map((f) => f.name) },
-    `assertProdSafety: ${failures.length} prod-safety check(s) failed (dev — continuing):\n${summary}`,
+    `assertProdSafety: ${failures.length} prod-safety check(s) failed (dev — continuing):\n${summary}`
   )
 }

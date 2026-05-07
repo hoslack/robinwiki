@@ -24,10 +24,10 @@
 // be invisible. By hardcoding here, the production-side PUBLIC_ROUTES
 // is treated as the thing under test.
 
-import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const CORE_SRC = resolve(__dirname, '..')
@@ -92,8 +92,12 @@ function findLineCommentStart(line: string): number {
     else if (!inSingle && !inBacktick && ch === '"') inDouble = !inDouble
     else if (!inSingle && !inDouble && ch === '`') inBacktick = !inBacktick
     else if (
-      !inSingle && !inDouble && !inBacktick &&
-      ch === '/' && next === '/' && line[i - 1] !== ':'
+      !inSingle &&
+      !inDouble &&
+      !inBacktick &&
+      ch === '/' &&
+      next === '/' &&
+      line[i - 1] !== ':'
     ) {
       return i
     }
@@ -136,7 +140,7 @@ describe('default-deny route audit (source-scan)', () => {
         `(?:\\*\\s+as\\s+${ident})` +
         `|(?:\\{[^}]*\\b${ident}\\b[^}]*\\})` +
         `|(?:${ident}\\b)` +
-      `)[^'"\`]*from\\s+['"\`]([^'"\`]+)['"\`]`,
+        `)[^'"\`]*from\\s+['"\`]([^'"\`]+)['"\`]`
     )
     const m = importRegex.exec(indexSrc)
     if (!m) return null
