@@ -62,6 +62,13 @@ export type WikiSectionSchema = {
     citations?: Array<WikiCitationSchema>;
 };
 
+export type WikiCollectionSchema = {
+    id: string;
+    name: string;
+    slug: string;
+    color: string;
+};
+
 export type ErrorResponseSchema = {
     error: string;
     fields?: unknown;
@@ -97,7 +104,7 @@ export type EntryResponseSchema = {
     source: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
     ingestStatus: string;
-    lastError?: string | null;
+    lastError?: string;
     attemptCount?: number;
     createdAt: string;
     updatedAt: string;
@@ -132,6 +139,8 @@ export type EntryListResponseSchema = {
         source: string;
         state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
         ingestStatus: string;
+        lastError?: string;
+        attemptCount?: number;
         createdAt: string;
         updatedAt: string;
     }>;
@@ -242,6 +251,7 @@ export type ThreadResponseSchema = {
     lookupKey: string;
     slug: string;
     name: string;
+    description?: string;
     type: string;
     prompt: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
@@ -259,14 +269,10 @@ export type ThreadResponseSchema = {
         }>;
         percentage: number;
     };
+    bouncerMode?: 'auto' | 'review';
     published?: boolean;
     publishedSlug?: string;
-    collections?: Array<{
-        id: string;
-        name: string;
-        slug: string;
-        color: string;
-    }>;
+    collections?: Array<WikiCollectionSchema>;
 };
 
 export type ThreadWithWikiResponseSchema = {
@@ -274,6 +280,7 @@ export type ThreadWithWikiResponseSchema = {
     lookupKey: string;
     slug: string;
     name: string;
+    description?: string;
     type: string;
     prompt: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
@@ -291,6 +298,10 @@ export type ThreadWithWikiResponseSchema = {
         }>;
         percentage: number;
     };
+    bouncerMode?: 'auto' | 'review';
+    published?: boolean;
+    publishedSlug?: string;
+    collections?: Array<WikiCollectionSchema>;
     wikiContent: string;
 };
 
@@ -300,6 +311,7 @@ export type ThreadListResponseSchema = {
         lookupKey: string;
         slug: string;
         name: string;
+        description?: string;
         type: string;
         prompt: string;
         state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
@@ -317,12 +329,10 @@ export type ThreadListResponseSchema = {
             }>;
             percentage: number;
         };
-        collections?: Array<{
-            id: string;
-            name: string;
-            slug: string;
-            color: string;
-        }>;
+        bouncerMode?: 'auto' | 'review';
+        published?: boolean;
+        publishedSlug?: string;
+        collections?: Array<WikiCollectionSchema>;
     }>;
 };
 
@@ -331,6 +341,7 @@ export type WikiDetailResponseSchema = {
     lookupKey: string;
     slug: string;
     name: string;
+    description?: string;
     type: string;
     prompt: string;
     state: 'PENDING' | 'RESOLVED' | 'LINKING' | 'DIRTY';
@@ -348,20 +359,17 @@ export type WikiDetailResponseSchema = {
         }>;
         percentage: number;
     };
+    bouncerMode?: 'auto' | 'review';
     published?: boolean;
     publishedSlug?: string;
-    collections?: Array<{
-        id: string;
-        name: string;
-        slug: string;
-        color: string;
-    }>;
+    collections?: Array<WikiCollectionSchema>;
     wikiContent: string;
     fragments: Array<{
         id: string;
         slug: string;
         title: string;
         snippet: string;
+        edgeStatus?: 'active' | 'pending';
     }>;
     people: Array<{
         id: string;
@@ -582,15 +590,6 @@ export type UserProfileResponseSchema = {
     mcpEndpointUrl: string;
     apiKeyHint: string;
     onboardedAt: string;
-    /**
-     * The Person row that represents the knowledge-base owner. Hand-patched
-     * here in the codegen-output until the OpenAPI spec re-generates;
-     * kept in sync with userProfileResponseSchema in core/src/schemas/users.schema.ts.
-     */
-    ownerPerson: {
-        lookupKey: string;
-        name: string;
-    } | null;
 };
 
 export type UserStatsResponseSchema = {
