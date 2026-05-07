@@ -37,7 +37,7 @@ import {
   wikiClassificationSchema,
   fragmentRelevanceSchema,
 } from '@robin/shared'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, ne, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import {
   fragments,
@@ -96,7 +96,7 @@ async function insertEdgeRow(edge: Record<string, unknown>): Promise<void> {
       return
     }
   }
-  await db
+  const inserted = await db
     .insert(edges)
     .values({
       id: crypto.randomUUID(),
@@ -108,6 +108,21 @@ async function insertEdgeRow(edge: Record<string, unknown>): Promise<void> {
       attrs: (edge.attrs as Record<string, unknown> | undefined) ?? null,
     })
     .onConflictDoNothing()
+    .returning({ id: edges.id })
+  // Stream E lifecycle: bump dirty-state to 'learning' when we just inserted
+  // a NEW FRAGMENT_IN_WIKI edge (not when the conflict path hit). Skip if
+  // the wiki is currently 'dreaming' — that state belongs to the regen
+  // worker and gets reset to 'filed' on completion.
+  if (
+    inserted.length > 0 &&
+    edge.edgeType === 'FRAGMENT_IN_WIKI' &&
+    typeof edge.dstId === 'string'
+  ) {
+    await db
+      .update(wikis)
+      .set({ lifecycleState: 'learning' })
+      .where(and(eq(wikis.lookupKey, edge.dstId), ne(wikis.lifecycleState, 'dreaming')))
+  }
 }
 
 // ── Extraction processor ────────────────────────────────────────────────────

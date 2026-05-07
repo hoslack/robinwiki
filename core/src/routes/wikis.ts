@@ -237,6 +237,13 @@ wikisRouter.post('/', zValidator('json', createWikiBodySchema, validationHook), 
       }
 
       if (matched.length > 0) {
+        // Stream E lifecycle: a freshly-created wiki with attached fragments
+        // is 'learning' until the first regen completes.
+        await db
+          .update(wikis)
+          .set({ lifecycleState: 'learning' })
+          .where(eq(wikis.lookupKey, lookupKey))
+
         await producer.enqueueRegen({
           type: 'regen',
           jobId: crypto.randomUUID(),
