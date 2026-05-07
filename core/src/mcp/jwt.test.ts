@@ -132,27 +132,6 @@ function decodeHeader(jwt: string): Record<string, unknown> {
   return JSON.parse(Buffer.from(parts[0] ?? '', 'base64').toString())
 }
 
-/**
- * Sign a token whose header `kid` is the legacy 16-char SHA-256 prefix
- * instead of the current 32-char prefix. Used to exercise the
- * backward-compat fallback path.
- */
-async function signLegacy16CharToken(user: FakeUser): Promise<string> {
-  const privateKeyDer = decryptPrivateKey(user.encryptedPrivateKey, SECRET)
-  const privateKey = createPrivateKey({
-    key: privateKeyDer,
-    format: 'der',
-    type: 'pkcs8',
-  })
-  const legacyKid = createHash('sha256').update(user.publicKey).digest('hex').slice(0, 16)
-  return new SignJWT({ ver: user.mcpTokenVersion })
-    .setProtectedHeader({ alg: 'EdDSA', kid: legacyKid })
-    .setIssuer('robin')
-    .setAudience('robin-mcp')
-    .setIssuedAt()
-    .sign(privateKey)
-}
-
 beforeEach(() => {
   usersTable = []
   dbSelectSpy.mockClear()
@@ -190,17 +169,25 @@ describe('verifyMcpToken — kid handling', () => {
     expect(userId).toBe('u1')
   })
 
-  it('16-char legacy kid still validates via the cold-cache fallback', async () => {
-    // Cold cache: never primed by a prior verify. The legacy token
-    // forces findUserByKid to rebuild from DB, then prefix-match the
-    // 16-char header against the stored 32-char fingerprint.
-    //
-    // TODO(sec-phase-4): once the grace window closes, remove the
-    // 16-char fallback and this test.
+  it('16-char kid is rejected with Unknown key error', async () => {
+    // Breaking change: legacy tokens minted with a 16-char kid header
+    // must fail verification. Users re-paste their MCP URL once to
+    // pick up a fresh 32-char-kid token from /users/profile.
     const u = addUser('u1')
-    const legacyJwt = await signLegacy16CharToken(u)
-    const userId = await verifyMcpToken(legacyJwt)
-    expect(userId).toBe('u1')
+    const privateKeyDer = decryptPrivateKey(u.encryptedPrivateKey, SECRET)
+    const privateKey = createPrivateKey({
+      key: privateKeyDer,
+      format: 'der',
+      type: 'pkcs8',
+    })
+    const legacyKid = createHash('sha256').update(u.publicKey).digest('hex').slice(0, 16)
+    const legacyJwt = await new SignJWT({ ver: u.mcpTokenVersion })
+      .setProtectedHeader({ alg: 'EdDSA', kid: legacyKid })
+      .setIssuer('robin')
+      .setAudience('robin-mcp')
+      .setIssuedAt()
+      .sign(privateKey)
+    await expect(verifyMcpToken(legacyJwt)).rejects.toThrow(/Unknown key/)
   })
 })
 
