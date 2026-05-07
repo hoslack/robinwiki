@@ -1,4 +1,4 @@
-import { loadFragmentationSpec, computeFragmentLimits } from '@robin/shared/prompts'
+import { loadFragmentationSpec, computeFragmentLimits } from '@robin/shared'
 import { dedupBatch } from '../dedup.js'
 import type { StageResult, FragmentDeps, FragmentResult } from './types.js'
 

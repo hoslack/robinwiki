@@ -3,7 +3,7 @@ import type {
   FragmentationOutput,
   WikiClassificationOutput,
   FragmentRelevanceOutput,
-} from '@robin/shared/prompts'
+} from '@robin/shared'
 import type { OpenRouterConfig } from '../openrouter-config.js'
 
 // ── Stage Result ─────────────────────────────────────────────────────────────

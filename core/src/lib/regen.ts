@@ -6,13 +6,13 @@ import {
   embedText,
   wikiClassify,
 } from '@robin/agent'
-import { type WikiType } from '@robin/shared'
 import {
   loadWikiGenerationSpec,
   renderFragmentsBlock,
   wikiClassificationSchema,
   type WikiGenerationOverride,
-} from '@robin/shared/prompts'
+  type WikiType,
+} from '@robin/shared'
 import {
   wikiCitationDeclarationSchema,
   wikiInfoboxSchema,

@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { loadWikiTypeConfigs } from '@robin/shared/prompts'
+import { loadWikiTypeConfigs } from '@robin/shared'
 import { db } from '../db/client.js'
 import { wikiTypes } from '../db/schema.js'
 import { logger } from '../lib/logger.js'

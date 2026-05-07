@@ -1,6 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { NoOpenRouterKeyError, type OpenRouterConfig } from '@robin/agent'
-import { DEFAULT_MODEL, FRAGMENT_MODEL, FAST_MODEL } from '@robin/shared/prompts'
+import { DEFAULT_MODEL, FRAGMENT_MODEL, FAST_MODEL } from '@robin/shared'
 import { db } from '../db/client.js'
 import { configs } from '../db/schema.js'
 
