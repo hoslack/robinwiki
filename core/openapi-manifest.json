@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "generatedAt": "2026-04-24T15:53:23.019Z",
+    "generatedAt": "2026-05-07T12:05:45.971Z",
     "description": "Route + JSON Schema manifest for OpenAPI generation. Feed to /apidoc.",
-    "schemaCount": 61,
-    "routeCount": 56
+    "schemaCount": 63,
+    "routeCount": 58
   },
   "info": {
     "title": "Robin API",
@@ -175,6 +175,35 @@
         },
         "404": {
           "description": "Not found",
+          "schemaName": "errorResponseSchema"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/entries/{id}/retry",
+      "operationId": "retryEntry",
+      "summary": "Retry a failed entry extraction",
+      "tags": [
+        "Entries"
+      ],
+      "auth": "session",
+      "request": {
+        "params": {
+          "id": "lookupKey"
+        }
+      },
+      "responses": {
+        "202": {
+          "description": "Entry re-queued for extraction",
+          "schemaName": "okResponseSchema"
+        },
+        "404": {
+          "description": "Not found",
+          "schemaName": "errorResponseSchema"
+        },
+        "409": {
+          "description": "Entry is not in failed state",
           "schemaName": "errorResponseSchema"
         }
       }
@@ -1162,18 +1191,51 @@
       "method": "GET",
       "path": "/users/keypair",
       "operationId": "getUserKeypair",
-      "summary": "Get user's Ed25519 keypair",
+      "summary": "Get user's Ed25519 keypair metadata (no privateKey)",
       "tags": [
         "Users"
       ],
       "auth": "session",
       "responses": {
         "200": {
-          "description": "Keypair details",
+          "description": "Keypair metadata (algorithm, publicKey, fingerprint)",
           "schemaName": "keypairResponseSchema"
         },
         "404": {
           "description": "No keypair",
+          "schemaName": "errorResponseSchema"
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/users/keypair/reveal",
+      "operationId": "revealUserKeypair",
+      "summary": "Reveal Ed25519 private key after password verify",
+      "tags": [
+        "Users"
+      ],
+      "auth": "session",
+      "request": {
+        "body": {
+          "schemaName": "keypairRevealRequestSchema"
+        }
+      },
+      "responses": {
+        "200": {
+          "description": "Keypair with decrypted privateKey",
+          "schemaName": "keypairRevealResponseSchema"
+        },
+        "401": {
+          "description": "Invalid credentials",
+          "schemaName": "errorResponseSchema"
+        },
+        "404": {
+          "description": "No keypair",
+          "schemaName": "errorResponseSchema"
+        },
+        "429": {
+          "description": "Too many failed reveal attempts",
           "schemaName": "errorResponseSchema"
         }
       }
@@ -1463,6 +1525,13 @@
             "ingestStatus": {
               "type": "string"
             },
+            "lastError": {
+              "type": "string",
+              "nullable": true
+            },
+            "attemptCount": {
+              "type": "number"
+            },
             "createdAt": {
               "type": "string",
               "format": "date-time"
@@ -1528,6 +1597,13 @@
             },
             "ingestStatus": {
               "type": "string"
+            },
+            "lastError": {
+              "type": "string",
+              "nullable": true
+            },
+            "attemptCount": {
+              "type": "number"
             },
             "createdAt": {
               "type": "string",
@@ -1611,6 +1687,13 @@
                   },
                   "ingestStatus": {
                     "type": "string"
+                  },
+                  "lastError": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "attemptCount": {
+                    "type": "number"
                   },
                   "createdAt": {
                     "type": "string",
@@ -1948,6 +2031,34 @@
                 ],
                 "additionalProperties": false
               }
+            },
+            "relatedFragments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "similarity": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "id",
+                  "slug",
+                  "title",
+                  "similarity"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
             }
           },
           "required": [
@@ -2231,6 +2342,43 @@
                 "review"
               ],
               "default": "auto"
+            },
+            "published": {
+              "type": "boolean",
+              "default": false
+            },
+            "publishedSlug": {
+              "type": "string",
+              "nullable": true,
+              "default": null
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "slug",
+                  "color"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
             }
           },
           "required": [
@@ -2362,6 +2510,43 @@
                 "review"
               ],
               "default": "auto"
+            },
+            "published": {
+              "type": "boolean",
+              "default": false
+            },
+            "publishedSlug": {
+              "type": "string",
+              "nullable": true,
+              "default": null
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "slug",
+                  "color"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
             },
             "wikiContent": {
               "type": "string"
@@ -2502,6 +2687,43 @@
                       "review"
                     ],
                     "default": "auto"
+                  },
+                  "published": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "publishedSlug": {
+                    "type": "string",
+                    "nullable": true,
+                    "default": null
+                  },
+                  "collections": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "slug": {
+                          "type": "string"
+                        },
+                        "color": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "slug",
+                        "color"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "default": []
                   }
                 },
                 "required": [
@@ -2640,6 +2862,43 @@
                 "review"
               ],
               "default": "auto"
+            },
+            "published": {
+              "type": "boolean",
+              "default": false
+            },
+            "publishedSlug": {
+              "type": "string",
+              "nullable": true,
+              "default": null
+            },
+            "collections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "name",
+                  "slug",
+                  "color"
+                ],
+                "additionalProperties": false
+              },
+              "default": []
             },
             "wikiContent": {
               "type": "string"
@@ -4100,6 +4359,9 @@
                 }
               ]
             },
+            "tags": {
+              "type": "string"
+            },
             "mode": {
               "type": "string",
               "enum": [
@@ -4284,14 +4546,61 @@
             "publicKey": {
               "type": "string"
             },
-            "privateKey": {
+            "fingerprint": {
               "type": "string"
             }
           },
           "required": [
             "algorithm",
             "publicKey",
-            "privateKey"
+            "fingerprint"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "keypairRevealRequestSchema": {
+      "$ref": "#/definitions/keypairRevealRequestSchema",
+      "definitions": {
+        "keypairRevealRequestSchema": {
+          "type": "object",
+          "properties": {
+            "password": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "password"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    "keypairRevealResponseSchema": {
+      "$ref": "#/definitions/keypairRevealResponseSchema",
+      "definitions": {
+        "keypairRevealResponseSchema": {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "type": "string"
+            },
+            "publicKey": {
+              "type": "string"
+            },
+            "privateKey": {
+              "type": "string"
+            },
+            "fingerprint": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "algorithm",
+            "publicKey",
+            "privateKey",
+            "fingerprint"
           ],
           "additionalProperties": false
         }
@@ -4848,6 +5157,9 @@
         "systemStatusResponseSchema": {
           "type": "object",
           "properties": {
+            "status": {
+              "type": "string"
+            },
             "initialized": {
               "type": "boolean"
             },
@@ -4866,6 +5178,7 @@
             }
           },
           "required": [
+            "status",
             "initialized",
             "version",
             "instanceId",

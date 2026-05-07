@@ -2549,6 +2549,30 @@
           "level"
         ]
       },
+      "wikiCollectionSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "color"
+        ],
+        "additionalProperties": false
+      },
       "errorResponseSchema": {
         "type": "object",
         "properties": {
@@ -2669,6 +2693,13 @@
           },
           "ingestStatus": {
             "type": "string"
+          },
+          "lastError": {
+            "type": "string",
+            "nullable": true
+          },
+          "attemptCount": {
+            "type": "number"
           },
           "createdAt": {
             "type": "string",
@@ -2820,6 +2851,13 @@
                 },
                 "ingestStatus": {
                   "type": "string"
+                },
+                "lastError": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "attemptCount": {
+                  "type": "number"
                 },
                 "createdAt": {
                   "type": "string",
@@ -3294,6 +3332,10 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
           "type": {
             "type": "string"
           },
@@ -3375,6 +3417,30 @@
             "additionalProperties": false,
             "nullable": true,
             "default": null
+          },
+          "bouncerMode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "review"
+            ],
+            "default": "auto"
+          },
+          "published": {
+            "type": "boolean",
+            "default": false
+          },
+          "publishedSlug": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/wikiCollectionSchema"
+            },
+            "default": []
           }
         },
         "required": [
@@ -3409,6 +3475,10 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "type": "string",
+            "default": ""
+          },
           "type": {
             "type": "string"
           },
@@ -3490,6 +3560,30 @@
             "additionalProperties": false,
             "nullable": true,
             "default": null
+          },
+          "bouncerMode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "review"
+            ],
+            "default": "auto"
+          },
+          "published": {
+            "type": "boolean",
+            "default": false
+          },
+          "publishedSlug": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/wikiCollectionSchema"
+            },
+            "default": []
           },
           "wikiContent": {
             "type": "string"
@@ -3532,6 +3626,10 @@
                 },
                 "name": {
                   "type": "string"
+                },
+                "description": {
+                  "type": "string",
+                  "default": ""
                 },
                 "type": {
                   "type": "string"
@@ -3614,6 +3712,30 @@
                   "additionalProperties": false,
                   "nullable": true,
                   "default": null
+                },
+                "bouncerMode": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "review"
+                  ],
+                  "default": "auto"
+                },
+                "published": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "publishedSlug": {
+                  "type": "string",
+                  "nullable": true,
+                  "default": null
+                },
+                "collections": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/wikiCollectionSchema"
+                  },
+                  "default": []
                 }
               },
               "required": [
@@ -3654,6 +3776,10 @@
           },
           "name": {
             "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "default": ""
           },
           "type": {
             "type": "string"
@@ -3737,6 +3863,30 @@
             "nullable": true,
             "default": null
           },
+          "bouncerMode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "review"
+            ],
+            "default": "auto"
+          },
+          "published": {
+            "type": "boolean",
+            "default": false
+          },
+          "publishedSlug": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "collections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/wikiCollectionSchema"
+            },
+            "default": []
+          },
           "wikiContent": {
             "type": "string"
           },
@@ -3757,6 +3907,14 @@
                 },
                 "snippet": {
                   "type": "string"
+                },
+                "edgeStatus": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "pending"
+                  ],
+                  "default": "active"
                 }
               },
               "required": [
