@@ -10,6 +10,12 @@ import { ensureFirstUser } from './bootstrap/jit-provision.js'
 
 const log = logger.child({ component: 'auth' })
 
+// SEC-H2: cookie security flags derive from deploy mode, not from a string-
+// prefix check on SERVER_PUBLIC_URL. The boot gate in bootstrap/env.ts already
+// refuses to start in production unless SERVER_PUBLIC_URL is HTTPS, so the two
+// invariants stay aligned.
+const isProd = process.env.NODE_ENV === 'production'
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: 'pg',
@@ -37,10 +43,10 @@ export const auth = betterAuth({
     ...(process.env.WIKI_ORIGIN?.split(',') ?? ['http://localhost:8080']),
   ],
   advanced: {
-    useSecureCookies: process.env.SERVER_PUBLIC_URL?.startsWith('https://') ?? false,
+    useSecureCookies: isProd,
     defaultCookieAttributes: {
-      sameSite: (process.env.SERVER_PUBLIC_URL?.startsWith('https://') ? 'none' : 'lax') as 'none' | 'lax',
-      secure: process.env.SERVER_PUBLIC_URL?.startsWith('https://') ?? false,
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
     },
   },
 

@@ -17,18 +17,30 @@ export function assertProdEnv(): void {
     'RECOVERY_SECRET',
     'MASTER_KEY',
     'KEY_ENCRYPTION_SECRET',
+    'SERVER_PUBLIC_URL',
   ] as const
 
-  const recommended = [
-    'OPENROUTER_API_KEY',
-    'SERVER_PUBLIC_URL',
-    'WIKI_ORIGIN',
-  ] as const
+  const recommended = ['OPENROUTER_API_KEY', 'WIKI_ORIGIN'] as const
 
   const missing = required.filter((k) => !process.env[k])
   if (missing.length) {
     console.error(`FATAL: missing required env vars in production: ${missing.join(', ')}`)
     console.error('See .env.example at repo root for descriptions.')
+    process.exit(1)
+  }
+
+  // SEC-H2 boot gate: cookie security flags are NODE_ENV-driven (auth.ts), so
+  // an HTTP public URL in production would issue Secure cookies on a non-TLS
+  // origin and immediately drop them. Refuse to start instead of silently
+  // breaking auth — operator gets one clear message naming both env vars.
+  const publicUrl = process.env.SERVER_PUBLIC_URL
+  if (!publicUrl?.startsWith('https://')) {
+    console.error(
+      'FATAL: SERVER_PUBLIC_URL must start with https:// in production. ' +
+        `Got: ${publicUrl ?? '(unset)'}. ` +
+        'Fix by setting SERVER_PUBLIC_URL to your HTTPS deploy URL ' +
+        '(e.g. https://api.example.com) and redeploying.',
+    )
     process.exit(1)
   }
 
