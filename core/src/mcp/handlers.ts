@@ -50,7 +50,7 @@ import type { McpResolverDeps } from './resolvers.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG, embedText } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
@@ -806,3 +806,166 @@ export async function handleEditWiki(
 }
 
 
+
+
+/**
+ * Handle the `attach_fragments` MCP tool call.
+ *
+ * @summary Bulk-attach a list of existing fragments to a target wiki by
+ * slug. Phyl's #17 verb -- the first cleanly-named MCP attach surface,
+ * paired with the un-attach affordance owned by the wiki UI.
+ *
+ * Behaviour:
+ * - Resolves the wiki via `resolveWikiBySlug` (fuzzy slug, returns 404
+ *   semantics when not found).
+ * - Looks up each fragment by exact slug. Missing slugs are reported
+ *   back in the response under `notFound[]`; the call is partially
+ *   successful (idempotent for the slugs that do resolve).
+ * - Inserts a FRAGMENT_IN_WIKI edge per resolved fragment with
+ *   `onConflictDoNothing` so re-running the call is a no-op.
+ * - Marks the wiki PENDING so the next regen rebuilds with the new
+ *   members included.
+ * - Emits one audit row per attached fragment with `source_client`
+ *   stamped from the MCP handshake (Phase 2).
+ *
+ * Returns `{ wikiKey, wikiSlug, attached, alreadyAttached, notFound }`.
+ */
+export async function handleAttachFragments(
+  deps: McpServerDeps,
+  input: { wikiSlug: string; fragmentSlugs: string[] },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+
+  if (!input.wikiSlug?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: wikiSlug is required' }],
+      isError: true as const,
+    }
+  }
+
+  const slugs = (input.fragmentSlugs ?? [])
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter(Boolean)
+  if (slugs.length === 0) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: fragmentSlugs must contain at least one slug' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const resolverDeps: McpResolverDeps = { db: deps.db }
+    const wikiResult = await resolveWikiBySlug(resolverDeps, input.wikiSlug.trim())
+    if ('error' in wikiResult) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(wikiResult) }],
+        isError: true as const,
+      }
+    }
+
+    // Look up fragments by exact slug. Anything we don't find gets
+    // reported back so the caller can fix the slug and retry without
+    // re-attaching the ones that already landed.
+    const rows = await deps.db
+      .select({ lookupKey: fragmentsTable.lookupKey, slug: fragmentsTable.slug })
+      .from(fragmentsTable)
+      .where(
+        and(
+          isNull(fragmentsTable.deletedAt),
+          inArray(fragmentsTable.slug, slugs)
+        )
+      )
+
+    const found = new Map(rows.map((r) => [r.slug, r.lookupKey]))
+    const notFound = slugs.filter((s) => !found.has(s))
+
+    const attached: string[] = []
+    const alreadyAttached: string[] = []
+    const sourceClient = readSourceClient(deps)
+
+    for (const [slug, fragKey] of found.entries()) {
+      // Detect already-attached so the caller can distinguish a
+      // refresh from a fresh attach. Cheaper than a returning() trick
+      // because edges has a composite uniqueness on (src, dst, type).
+      const existing = await deps.db
+        .select({ id: edgesTable.id })
+        .from(edgesTable)
+        .where(
+          and(
+            eq(edgesTable.srcId, fragKey),
+            eq(edgesTable.dstId, wikiResult.lookupKey),
+            eq(edgesTable.edgeType, 'FRAGMENT_IN_WIKI'),
+            isNull(edgesTable.deletedAt)
+          )
+        )
+        .limit(1)
+
+      if (existing.length > 0) {
+        alreadyAttached.push(slug)
+        continue
+      }
+
+      await deps.db
+        .insert(edgesTable)
+        .values({
+          id: crypto.randomUUID(),
+          srcType: 'fragment',
+          srcId: fragKey,
+          dstType: 'wiki',
+          dstId: wikiResult.lookupKey,
+          edgeType: 'FRAGMENT_IN_WIKI',
+        })
+        .onConflictDoNothing()
+
+      attached.push(slug)
+
+      await emitAuditEvent(deps.db, {
+        entityType: 'fragment',
+        entityId: fragKey,
+        eventType: 'attached',
+        source: 'mcp',
+        summary: `Fragment attached to wiki: ${slug} -> ${wikiResult.slug}`,
+        detail: {
+          fragmentKey: fragKey,
+          fragmentSlug: slug,
+          wikiKey: wikiResult.lookupKey,
+          wikiSlug: wikiResult.slug,
+          ...(sourceClient ? { source_client: sourceClient } : {}),
+        },
+      })
+    }
+
+    if (attached.length > 0) {
+      // Bump wiki to PENDING so regen rebuilds it with the new
+      // members. Skip when nothing landed -- avoid spurious churn.
+      await deps.db
+        .update(wikisTable)
+        .set({ state: 'PENDING', updatedAt: new Date() })
+        .where(eq(wikisTable.lookupKey, wikiResult.lookupKey))
+    }
+
+    const result = {
+      wikiKey: wikiResult.lookupKey,
+      wikiSlug: wikiResult.slug,
+      attached,
+      alreadyAttached,
+      notFound,
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(result) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp attach_fragments failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}

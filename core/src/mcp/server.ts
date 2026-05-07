@@ -22,7 +22,7 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleAttachFragments } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog, groups, groupWikis } from '../db/schema.js'
 import { hybridSearch } from '../lib/search.js'
@@ -157,6 +157,34 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     },
     async ({ wikiSlug, content }, extra) => {
       return handleEditWiki(deps, { wikiSlug, content }, extra.authInfo?.clientId as string)
+    }
+  )
+
+  server.registerTool(
+    'attach_fragments',
+    {
+      description:
+        'Attach existing fragments to a wiki by slug. Use when you have ' +
+        'fragments that already live in the second-brain and want to ' +
+        'route them into a specific wiki without re-creating their ' +
+        'content. Returns three lists: attached (newly linked), ' +
+        'alreadyAttached (no-op idempotent re-runs), and notFound ' +
+        '(slugs that did not resolve). Get fragment slugs from search, ' +
+        'list_wikis -> get_wiki, or get_fragment.',
+      inputSchema: {
+        wikiSlug: z.string().describe('Target wiki slug (from list_wikis or get_wiki)'),
+        fragmentSlugs: z
+          .array(z.string())
+          .min(1)
+          .describe('One or more fragment slugs to attach to the target wiki'),
+      },
+    },
+    async ({ wikiSlug, fragmentSlugs }, extra) => {
+      return handleAttachFragments(
+        deps,
+        { wikiSlug, fragmentSlugs },
+        extra.authInfo?.clientId as string
+      )
     }
   )
 
