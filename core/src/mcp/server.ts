@@ -22,7 +22,7 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleAttachFragments } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleAttachFragments, handlePublishWiki, handleUnpublishWiki } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog, groups, groupWikis } from '../db/schema.js'
 import { hybridSearch } from '../lib/search.js'
@@ -185,6 +185,39 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
         { wikiSlug, fragmentSlugs },
         extra.authInfo?.clientId as string
       )
+    }
+  )
+
+  server.registerTool(
+    'publish_wiki',
+    {
+      description:
+        'Publish a wiki at a stable public URL. Returns the published ' +
+        'slug + origin -- combine them as `${origin}/p/${slug}` for the ' +
+        'shareable link. Idempotent: re-publishing keeps the same slug ' +
+        'until unpublish rotates it.',
+      inputSchema: {
+        wikiSlug: z.string().describe('Wiki slug to publish (from list_wikis or get_wiki)'),
+      },
+    },
+    async ({ wikiSlug }, extra) => {
+      return handlePublishWiki(deps, { wikiSlug }, extra.authInfo?.clientId as string)
+    }
+  )
+
+  server.registerTool(
+    'unpublish_wiki',
+    {
+      description:
+        'Revoke a published wiki. The current public slug is rotated ' +
+        '(nulled) so a future publish mints a fresh URL -- the previously ' +
+        'shared link stops resolving immediately.',
+      inputSchema: {
+        wikiSlug: z.string().describe('Wiki slug to unpublish'),
+      },
+    },
+    async ({ wikiSlug }, extra) => {
+      return handleUnpublishWiki(deps, { wikiSlug }, extra.authInfo?.clientId as string)
     }
   )
 

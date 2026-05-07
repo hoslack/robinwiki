@@ -46,6 +46,10 @@ import {
   edits as editsTable,
 } from '../db/schema.js'
 import { resolveWikiBySlug } from './resolvers.js'
+import {
+  publishWiki as publishWikiService,
+  unpublishWiki as unpublishWikiService,
+} from '../services/publish.js'
 import type { McpResolverDeps } from './resolvers.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG, embedText } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
@@ -963,6 +967,149 @@ export async function handleAttachFragments(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     log.error({ err, userId }, 'mcp attach_fragments failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+
+/**
+ * Handle the `publish_wiki` MCP tool call.
+ *
+ * @summary Reinstated MCP tool (#260). Resolves the wiki by slug and
+ * delegates to {@link publishWikiService}, so the HTTP route and the
+ * MCP tool flow through one code path. The `published_origin` is
+ * captured from `process.env.SERVER_PUBLIC_URL` -- MCP has no request
+ * context so the env var is the only deterministic source. When the
+ * env var is unset, origin lands as null and the UI falls back to
+ * `window.location.origin`.
+ */
+export async function handlePublishWiki(
+  deps: McpServerDeps,
+  input: { wikiSlug: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+  if (!input.wikiSlug?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: wikiSlug is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const resolverDeps: McpResolverDeps = { db: deps.db }
+    const wikiResult = await resolveWikiBySlug(resolverDeps, input.wikiSlug.trim())
+    if ('error' in wikiResult) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(wikiResult) }],
+        isError: true as const,
+      }
+    }
+
+    const origin = process.env.SERVER_PUBLIC_URL?.trim() || null
+    const sourceClient = readSourceClient(deps)
+    const result = await publishWikiService(deps.db, wikiResult.lookupKey, {
+      origin,
+      source: 'mcp',
+      sourceClient,
+    })
+    if (result.ok === false) {
+      const message =
+        result.error === 'no-content'
+          ? 'Cannot publish a wiki with no content'
+          : 'Wiki not found'
+      return {
+        content: [{ type: 'text' as const, text: `Error: ${message}` }],
+        isError: true as const,
+      }
+    }
+
+    const payload = {
+      wikiKey: result.wiki.lookupKey,
+      wikiSlug: result.wiki.slug,
+      published: result.wiki.published,
+      publishedSlug: result.wiki.publishedSlug,
+      publishedOrigin: result.wiki.publishedOrigin,
+      publishedAt: result.wiki.publishedAt,
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp publish_wiki failed')
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true as const,
+    }
+  }
+}
+
+/**
+ * Handle the `unpublish_wiki` MCP tool call.
+ *
+ * @summary Reinstated MCP tool (#260). Resolves the wiki by slug and
+ * delegates to {@link unpublishWikiService}.
+ */
+export async function handleUnpublishWiki(
+  deps: McpServerDeps,
+  input: { wikiSlug: string },
+  userId: string | undefined
+) {
+  if (!userId) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: not authenticated' }],
+      isError: true as const,
+    }
+  }
+  if (!input.wikiSlug?.trim()) {
+    return {
+      content: [{ type: 'text' as const, text: 'Error: wikiSlug is required' }],
+      isError: true as const,
+    }
+  }
+
+  try {
+    const resolverDeps: McpResolverDeps = { db: deps.db }
+    const wikiResult = await resolveWikiBySlug(resolverDeps, input.wikiSlug.trim())
+    if ('error' in wikiResult) {
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(wikiResult) }],
+        isError: true as const,
+      }
+    }
+
+    const sourceClient = readSourceClient(deps)
+    const result = await unpublishWikiService(deps.db, wikiResult.lookupKey, {
+      source: 'mcp',
+      sourceClient,
+    })
+    if (result.ok === false) {
+      return {
+        content: [{ type: 'text' as const, text: 'Error: Wiki not found' }],
+        isError: true as const,
+      }
+    }
+
+    const payload = {
+      wikiKey: result.wiki.lookupKey,
+      wikiSlug: result.wiki.slug,
+      published: result.wiki.published,
+    }
+    return {
+      content: [{ type: 'text' as const, text: JSON.stringify(payload) }],
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    log.error({ err, userId }, 'mcp unpublish_wiki failed')
     return {
       content: [{ type: 'text' as const, text: `Error: ${message}` }],
       isError: true as const,
