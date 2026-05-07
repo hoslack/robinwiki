@@ -26,6 +26,7 @@ import {
   userProfileResponseSchema,
   userStatsResponseSchema,
   userActivityResponseSchema,
+  userActivityQuerySchema,
   keypairResponseSchema,
   keypairRevealRequestSchema,
   keypairRevealResponseSchema,
@@ -269,11 +270,20 @@ usersRouter.get('/stats', async (c) => {
 
 // GET /users/activity
 usersRouter.get('/activity', async (c) => {
+  // SEC-L1: validate ?limit through a schema with .max(200). Reject (not
+  // coerce-to-default) on parse failure so attackers can't push past the cap
+  // by passing junk values. The default of 20 only applies when ?limit is
+  // absent entirely; `?limit=abc` becomes NaN and fails .int() validation.
+  const params = userActivityQuerySchema.safeParse({ limit: c.req.query('limit') })
+  if (!params.success) {
+    return c.json({ error: 'Invalid limit' }, 400)
+  }
+
   const rows = await db
     .select()
     .from(auditLog)
     .orderBy(sql`${auditLog.createdAt} DESC`)
-    .limit(20)
+    .limit(params.data.limit)
 
   return c.json(
     userActivityResponseSchema.parse({
