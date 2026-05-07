@@ -12,8 +12,9 @@
 # are populated so every `{{#if ...}}` branch in each wiki-type template
 # fires, making the preview demonstrate the richest output the user will see.
 #
-# `count` is an integer (wiki-generation.ts: `count: z.number()`). YAML parses
-# unquoted `2` as a number automatically — do NOT quote it.
+# `count` is an integer (wiki-generation.ts: `count: z.coerce.number()`).
+# Quoted because the fixture loader runs js-yaml under FAILSAFE_SCHEMA (SEC-L3)
+# which disables implicit numeric coercion — Zod re-coerces at validation.
 
 fragments: |
   [Fragment #1 — 2026-03-12]
@@ -24,7 +25,7 @@ fragments: |
   Decision: going with auto-save + visible "last saved" indicator. Matches Notion pattern.
 title: Onboarding UX decisions
 date: "2026-04-19"
-count: 2
+count: "2"
 timeline: |
   2026-03-12: fragment attached (discussion)
   2026-03-15: fragment attached (decision)

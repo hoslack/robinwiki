@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Handlebars from 'handlebars'
-import { load as loadYaml } from 'js-yaml'
+import { load as loadYaml, FAILSAFE_SCHEMA } from 'js-yaml'
 import { z } from 'zod'
 import { PromptSpecSchema } from './schema.js'
 import type { PromptSpec } from './schema.js'
@@ -24,7 +24,11 @@ export function loadSpec(filename: string, subdir?: string): PromptSpec {
   const dir = subdir ? resolve(SPECS_DIR, subdir) : SPECS_DIR
   const filePath = resolve(dir, filename)
   const raw = readFileSync(filePath, 'utf-8')
-  const parsed = loadYaml(raw)
+  // SEC-L3: FAILSAFE_SCHEMA disables implicit type coercion (yes/no→bool,
+  // 1.0→number, ~→null) — every unquoted scalar arrives as a string. The
+  // PromptSpecSchema's `z.coerce.*` and `yamlBoolean` helpers re-type at the
+  // validation boundary, so the migration is invisible to callers.
+  const parsed = loadYaml(raw, { schema: FAILSAFE_SCHEMA })
   const spec = PromptSpecSchema.parse(parsed)
 
   specCache.set(key, spec)
@@ -129,7 +133,8 @@ export function renderTemplate(
  * forbidden-field whitelist that protects spec.system_message from override.
  */
 export function parseSpecFromBlob(yaml: string): PromptSpec {
-  const parsed = loadYaml(yaml)
+  // SEC-L3: see loader::loadSpec — FAILSAFE_SCHEMA + Zod coercion.
+  const parsed = loadYaml(yaml, { schema: FAILSAFE_SCHEMA })
   return PromptSpecSchema.parse(parsed)
 }
 
@@ -185,7 +190,8 @@ const STRIPPED_SYSTEM_MESSAGE_PLACEHOLDER = '__stripped_system_message_placehold
  * caller boundary; it must NEVER reach the LLM.
  */
 export function parseUserSpecFromBlobStrict(yaml: string): PromptSpec {
-  const parsed = loadYaml(yaml)
+  // SEC-L3: FAILSAFE_SCHEMA — see loader::loadSpec.
+  const parsed = loadYaml(yaml, { schema: FAILSAFE_SCHEMA })
   ensurePlainObject(parsed)
 
   const offending = USER_OVERRIDE_FORBIDDEN_FIELDS.filter((field) => Object.hasOwn(parsed, field))
@@ -223,7 +229,8 @@ export function parseUserSpecFromBlobLenient(yaml: string): {
   spec: PromptSpec
   stripped: string[]
 } {
-  const parsed = loadYaml(yaml)
+  // SEC-L3: FAILSAFE_SCHEMA — see loader::loadSpec.
+  const parsed = loadYaml(yaml, { schema: FAILSAFE_SCHEMA })
   ensurePlainObject(parsed)
 
   const stripped: string[] = []
