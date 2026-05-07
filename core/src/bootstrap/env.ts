@@ -1,5 +1,5 @@
-import { z } from 'zod'
 import { createConfigVar } from '@robin/shared'
+import { z } from 'zod'
 
 /**
  * Fail-fast check for production deploys. Runs before any other bootstrap step
@@ -17,6 +17,7 @@ export function assertProdEnv(): void {
     'MASTER_KEY',
     'KEY_ENCRYPTION_SECRET',
     'WIKI_ORIGIN',
+    'JOB_SIGNING_SECRET',
   ] as const
 
   const recommended = [
@@ -86,6 +87,13 @@ export const env = createConfigVar({
       .regex(/^[a-f0-9]{64}$/)
       .describe('64 hex chars — generate with: openssl rand -hex 32'),
     KEY_ENCRYPTION_SECRET: z.string().min(32).describe('32+ char key encryption secret'),
+    JOB_SIGNING_SECRET: z
+      .string()
+      .min(32)
+      .optional()
+      .describe(
+        '32+ char HMAC secret for BullMQ job payload signing — required in production (openssl rand -hex 32)'
+      ),
     INITIAL_USERNAME: z.string().email().describe('Email for first admin user'),
     INITIAL_PASSWORD: z.string().min(6).describe('Password for first admin user'),
     OPENROUTER_API_KEY: z.string().min(1).describe('OpenRouter API key (openrouter.ai/keys)'),
