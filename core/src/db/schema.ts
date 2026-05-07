@@ -194,7 +194,7 @@ export const entries = pgTable(
       channel?: string
       sessionId?: string
     }>(),
-    // Stream C / C2 — MCP `clientInfo` payload (`{name, version, ...}`)
+    // Stream C / C2: MCP `clientInfo` payload (`{name, version, ...}`)
     // for MCP captures, `{name: 'web'}` for web-UI captures, NULL for
     // legacy rows or any caller that doesn't supply client identity.
     // Migration 0007. Decision 2026-05-07: jsonb (carries optional

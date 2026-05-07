@@ -53,7 +53,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
   }
 
   /**
-   * Stream C / C2 — read MCP `clientInfo` (Implementation: `{name, version}`)
+   * Stream C / C2: read MCP `clientInfo` (Implementation: `{name, version}`)
    * from the underlying SDK Server. Returns null until the client has
    * completed the `initialize` handshake. Persisted by the write
    * handlers to `entries.source_client` (raw_sources) and to the
@@ -489,7 +489,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     'list_skills',
     {
       description:
-        'List skill wikis — the metadata index of every wiki stored under ' +
+        'List skill wikis: the metadata index of every wiki stored under ' +
         'the `skill` wiki_type. Returns slug, name, description, and version, ' +
         'sorted by most-recently updated. Read-only; the wiki body is not ' +
         'included (fetch it via `get_wiki` when needed). Useful when a Claude ' +
@@ -507,7 +507,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
             lookupKey: wikis.lookupKey,
             updatedAt: wikis.updatedAt,
             // The wiki_types row carries the version the skill was based on
-            // (basedOnVersion) — surfaced as `version` for callers that
+            // (basedOnVersion). Surfaced as `version` for callers that
             // want to detect drift against the YAML defaults.
             version: wikiTypes.basedOnVersion,
           })

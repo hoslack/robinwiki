@@ -388,7 +388,7 @@ export async function handleLogFragment(
         fragmentKey: fragKey,
         wikiKey: threadResult.lookupKey,
         threadSlug: threadResult.slug,
-        // C2 — fragments table has no source_client column; the audit
+        // C2: fragments table has no source_client column; the audit
         // detail carries the MCP clientInfo for parity with entries.
         sourceClient: input.sourceClient ?? null,
       },

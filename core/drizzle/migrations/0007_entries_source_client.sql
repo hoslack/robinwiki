@@ -1,4 +1,4 @@
--- Stream C / C2 — `source_client` jsonb column on entries (raw_sources).
+-- Stream C / C2: `source_client` jsonb column on entries (raw_sources).
 --
 -- Captures the MCP `clientInfo` payload (`{name, version, ...}`) for any
 -- entry created via the MCP transport, and `{name: 'web'}` for entries

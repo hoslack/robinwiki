@@ -48,7 +48,7 @@ entries.post('/', zValidator('json', createEntryBodySchema, validationHook), asy
   const { ulid: entryUlid } = parseLookupKey(entryKey)
   const slug = await resolveEntrySlug(db, generateSlug(title ?? content.slice(0, 80)))
 
-  // Stream C / C2 — web-UI captures get `{name: 'web'}`; other HTTP
+  // Stream C / C2: web-UI captures get `{name: 'web'}`. Other HTTP
   // captures (`source: 'api'` or anything else) leave `source_client`
   // NULL. MCP-originated rows are populated by handleLogEntry from the
   // protocol-level clientInfo handshake.
