@@ -39,7 +39,12 @@ export const auth = betterAuth({
     additionalFields: {
       mustResetPassword: {
         type: 'boolean',
-        fieldName: 'password_reset_required',
+        // The drizzle schema's JS property is `passwordResetRequired` and the
+        // adapter looks up schema[model][fieldName] to find the column. Setting
+        // fieldName to the drizzle key (not the snake_case DB column) is what
+        // the better-auth drizzle adapter expects — see node_modules/@better-
+        // auth/drizzle-adapter/dist/index.mjs `getFieldName`.
+        fieldName: 'passwordResetRequired',
         required: false,
         defaultValue: false,
         input: false,
