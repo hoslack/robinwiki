@@ -29,6 +29,7 @@ import { startWorkers } from './queue/worker.js'
 import {
   setupRegenScheduler,
   setupEmbeddingRetryScheduler,
+  setupPrunePipelineEventsScheduler,
 } from './queue/scheduler.js'
 import { producer } from './queue/producer.js'
 import { QUEUE_NAMES } from '@robin/queue'
@@ -288,6 +289,12 @@ await setupRegenScheduler(schedulerQueue).catch((err) => {
 // worker dispatches by job.type.
 await setupEmbeddingRetryScheduler(schedulerQueue).catch((err) => {
   logger.warn({ err }, 'embedding retry scheduler setup failed — retries disabled')
+})
+
+// Daily pipeline_events retention sweep (03:00 UTC). Defaults: 30d for
+// completed rows, 90d for failed. Without this the table grows unbounded.
+await setupPrunePipelineEventsScheduler(schedulerQueue).catch((err) => {
+  logger.warn({ err }, 'prune-pipeline-events scheduler setup failed — retention disabled')
 })
 
 const port = Number.parseInt(process.env.PORT ?? '3000', 10)
