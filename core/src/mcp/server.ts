@@ -26,6 +26,7 @@ import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWi
 import type { McpServerDeps } from './handlers.js'
 import { wikis, edges, auditLog, groups, groupWikis } from '../db/schema.js'
 import { hybridSearch } from '../lib/search.js'
+import { searchResponseSchema } from '../schemas/search.schema.js'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { emitAuditEvent } from '../db/audit.js'
 
@@ -389,8 +390,14 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
           embedConfig,
         })
 
+        // G3 shape parity: validate through the same schema the HTTP
+        // /search route uses (routes/search.ts) before stringifying. Same
+        // data today, but this prevents silent drift if the HTTP shape
+        // ever changes and MCP keeps returning the legacy `SearchResult[]`.
+        const response = searchResponseSchema.parse({ results })
+
         return {
-          content: [{ type: 'text' as const, text: JSON.stringify(results) }],
+          content: [{ type: 'text' as const, text: JSON.stringify(response) }],
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err)
