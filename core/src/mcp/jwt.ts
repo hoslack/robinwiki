@@ -73,7 +73,17 @@ function publicKeyId(publicKeyHex: string): string {
  * @remarks
  * Uses the user's Ed25519 private key (decrypted from DB via
  * `KEY_ENCRYPTION_SECRET`). Token includes `ver` claim for
- * revocation support. Expiry is set to 100 years (effectively permanent).
+ * revocation support.
+ *
+ * **No expiry by design.** MCP clients embed the token in a long-lived
+ * URL (`/mcp?token=<jwt>`); rotating expiry would force users to
+ * re-paste the URL into every client config on a schedule, which they
+ * will not do. Revocation is via `users.mcpTokenVersion`: bumping the
+ * column instantly invalidates every outstanding token for that user
+ * (see verifyMcpToken's freshness gate) and `clearKidCache` evicts the
+ * cached row so the next verify rebuilds against fresh DB state. Do
+ * **not** add `.setExpirationTime(...)` here — it does not bound risk
+ * and breaks the stable-URL contract.
  *
  * @param userId - User to sign a token for
  * @returns Signed JWT string, or `null` if user has no keypair
@@ -98,7 +108,6 @@ export async function signMcpToken(userId: string): Promise<string | null> {
     .setIssuer('robin')
     .setAudience('robin-mcp')
     .setIssuedAt()
-    .setExpirationTime('100y')
     .sign(privateKey)
 }
 
