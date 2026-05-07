@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { assertProdEnv } from './bootstrap/env.js'
+import { assertProdSafety } from './bootstrap/assert-prod-safety.js'
 import { readFileSync } from 'node:fs'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
@@ -56,14 +56,20 @@ declare module 'hono' {
  * Registered first so nothing escapes, even during startup.
  ***********************************************************************/
 
+// SEC-L4: in production we hand control back to the orchestrator (Railway,
+// systemd, Kubernetes) — process.exit(1) is the contract for a restart. In
+// dev/test we log and continue: a single rejected promise in a request
+// handler must not kill the dev server mid-debug.
+const exitOnFatal = process.env.NODE_ENV === 'production'
+
 process.on('unhandledRejection', (reason) => {
   logger.error({ reason }, 'unhandledRejection')
-  process.exit(1)
+  if (exitOnFatal) process.exit(1)
 })
 
 process.on('uncaughtException', (err) => {
   logger.error({ err }, 'uncaughtException')
-  process.exit(1)
+  if (exitOnFatal) process.exit(1)
 })
 
 process.once('SIGINT', () => process.exit(0))
@@ -127,6 +133,18 @@ const faviconBuf = readFileSync(new URL('../assets/favicon.ico', import.meta.url
  * ## Pre-auth routes (+ session-gated admin)
  * Health, OpenAPI, auth recovery, published, system — no session middleware.
  * Admin and BullBoard routes apply their own session middleware.
+ *
+ * SEC-DESIGN-DEFAULT-DENY — every route mounted in this section is PUBLIC.
+ * The canonical list lives in core/src/bootstrap/assert-prod-safety.ts as
+ * `PUBLIC_ROUTES`. The unit test
+ * core/src/__tests__/route-allowlist.test.ts asserts the source-tree mount
+ * surface matches that constant — adding a route here without updating
+ * PUBLIC_ROUTES (or self-applying session middleware) fails the test.
+ *
+ * Two narrow exceptions self-apply session middleware INSIDE this block and
+ * are NOT in PUBLIC_ROUTES:
+ *   - /admin/*        (adminRoutes.use('*', sessionMiddleware))
+ *   - /admin/queues/* (app.use('/admin/queues/*', sessionMiddleware) below)
  ***********************************************************************/
 
 // Backend-root landing page. Users who deploy via Railway and click the
@@ -215,9 +233,11 @@ app.route('/ai', aiModelsRoutes)
  * ## Boot
  ***********************************************************************/
 
-// Explicit, idempotent prod-env gate. Also runs at module load (from env.ts),
-// so in practice this line is a no-op — kept here to document boot order.
-assertProdEnv()
+// Aggregated prod-safety gate (SEC-DESIGN-PROD-GATE). Wraps assertProdEnv
+// plus any future env-only runtime checks. In production any failure aborts
+// the boot with a single message listing everything wrong; in dev, failures
+// log and boot continues.
+await assertProdSafety()
 
 // Fail fast on missing MASTER_KEY before any crypto ops run
 loadMasterKey()

@@ -89,7 +89,9 @@ const inputSchema = z.object({
   fragments: z.string(),
   title: z.string(),
   date: z.string(),
-  count: z.number(),
+  // SEC-L3: callers may stringify `count` if it survives a FAILSAFE_SCHEMA
+  // YAML round-trip; coerce so the input contract stays numeric.
+  count: z.coerce.number(),
   timeline: z.string().optional(),
   people: z.string().optional(),
   existingWiki: z.string().optional(),

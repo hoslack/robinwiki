@@ -1,6 +1,14 @@
 import { z } from 'zod'
 import { okResponseSchema } from './base.schema.js'
 
+// ── Query schemas ──────────────────────────────────────────────────────────
+
+// SEC-L1: every paginated GET caps `limit` at 200 to prevent unbounded result
+// scans. Hardcoded `.limit(20)` literals are forbidden — see plan 06/01.
+export const userActivityQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(20),
+})
+
 // ── Response schemas ────────────────────────────────────────────────────────
 
 export const userProfileResponseSchema = z.object({

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { load as loadYaml } from 'js-yaml'
+import { load as loadYaml, FAILSAFE_SCHEMA } from 'js-yaml'
 
 export interface PromptPreviewVars {
   fragments: string
@@ -42,7 +42,21 @@ export function loadWikiTypePreviewFixture(slug?: string): PromptPreviewVars {
   const cached = fixtureCache.get(path)
   if (cached) return cached
   const raw = readFileSync(path, 'utf-8')
-  const parsed = loadYaml(raw) as PromptPreviewVars
+  // SEC-L3: FAILSAFE_SCHEMA disables implicit type coercion — every unquoted
+  // YAML scalar arrives as a string. `count` is quoted in the fixture; we
+  // cast to Number at the boundary so the consumer sees the declared shape.
+  const parsedRaw = loadYaml(raw, { schema: FAILSAFE_SCHEMA }) as Record<string, unknown>
+  const parsed: PromptPreviewVars = {
+    fragments: String(parsedRaw.fragments ?? ''),
+    title: String(parsedRaw.title ?? ''),
+    date: String(parsedRaw.date ?? ''),
+    count: Number(parsedRaw.count ?? 0),
+    timeline: String(parsedRaw.timeline ?? ''),
+    people: String(parsedRaw.people ?? ''),
+    existingWiki: String(parsedRaw.existingWiki ?? ''),
+    edits: String(parsedRaw.edits ?? ''),
+    relatedWikis: String(parsedRaw.relatedWikis ?? ''),
+  }
   fixtureCache.set(path, parsed)
   return parsed
 }

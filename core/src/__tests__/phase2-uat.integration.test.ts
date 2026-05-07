@@ -78,9 +78,10 @@ vi.mock('../db/audit.js', () => ({
 const { authRecoverRoutes } = await import('../routes/auth-recover.js')
 const { __setRateLimitClient } = await import('../lib/rate-limit.js')
 const { sessionMiddleware } = await import('../middleware/session.js')
-// NOTE: `bootstrap/env.ts` runs assertProdEnv() at module load, which throws
-// when production env is missing. Keep that import lazy inside UAT 1 so the
-// rest of this file doesn't trip the validator at collect-time.
+// NOTE: assertProdEnv is exported from bootstrap/env.ts. Phase 6/04 dropped
+// the module-load invocation — the aggregator (assertProdSafety) now owns
+// the call site, so plain imports of env.js do not trigger the gate. UAT 1
+// invokes assertProdEnv directly to verify the throw contract.
 
 // Mock auth.api.getSession so we don't hit better-auth+postgres for the
 // BullBoard 401 check.
@@ -170,46 +171,17 @@ describe('UAT 1: assertProdEnv refuses prod + http SERVER_PUBLIC_URL', () => {
     Object.assign(process.env, originalEnv)
   })
 
-  it('exits with the documented FATAL message when SERVER_PUBLIC_URL is http://', async () => {
+  it('throws ProdSafetyError with the documented message when SERVER_PUBLIC_URL is http://', async () => {
     Object.assign(
       process.env,
       validEnvStub({ SERVER_PUBLIC_URL: 'http://api.example.com' }),
     )
 
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((_c?: number) => {
-      throw new Error('process.exit called')
-    }) as never)
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.resetModules()
+    const { assertProdEnv, ProdSafetyError } = await import('../bootstrap/env.js')
 
-    // Lazy import — module load runs assertProdEnv() once. We expect that
-    // initial run to throw with our spy in place, so wrap the whole import.
-    let assertProdEnv: () => void = () => {}
-    try {
-      vi.resetModules()
-      const mod = await import('../bootstrap/env.js')
-      assertProdEnv = mod.assertProdEnv
-    } catch (err) {
-      // Module-load assertProdEnv() invocation tripped the spy — that itself
-      // proves the gate fires. Continue and re-call to validate the message.
-      expect((err as Error).message).toBe('process.exit called')
-    }
-
-    if (typeof assertProdEnv === 'function' && assertProdEnv.length === 0) {
-      // Re-run if we got the export back. Either way the message must surface.
-      try {
-        assertProdEnv()
-      } catch (err) {
-        expect((err as Error).message).toBe('process.exit called')
-      }
-    }
-
-    const messages = errorSpy.mock.calls.map((args) => args.join(' '))
-    expect(messages.some((m) => m.includes('SERVER_PUBLIC_URL must start with https://'))).toBe(
-      true,
-    )
-
-    exitSpy.mockRestore()
-    errorSpy.mockRestore()
+    expect(() => assertProdEnv()).toThrow(ProdSafetyError)
+    expect(() => assertProdEnv()).toThrow(/SERVER_PUBLIC_URL must start with https:\/\//)
   })
 })
 
