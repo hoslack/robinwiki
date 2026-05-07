@@ -100,8 +100,15 @@ export interface EmbeddingRetryJob {
   enqueuedAt: string
 }
 
+export interface PrunePipelineEventsJob {
+  type: 'prune-pipeline-events'
+  jobId: string
+  triggeredBy: 'scheduler'
+  enqueuedAt: string
+}
+
 /** Job payloads dispatched by the scheduler worker (cron-driven). */
-export type SchedulerJob = RegenBatchJob | EmbeddingRetryJob
+export type SchedulerJob = RegenBatchJob | EmbeddingRetryJob | PrunePipelineEventsJob
 
 export type RobinJob =
   | ProvisionJob
@@ -111,6 +118,7 @@ export type RobinJob =
   | RegenJob
   | RegenBatchJob
   | EmbeddingRetryJob
+  | PrunePipelineEventsJob
 
 /** Producer wraps a job in this shape via signJob; worker strips it via verifyJob. */
 export type Signed<T> = T & { __sig: string }

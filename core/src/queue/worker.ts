@@ -50,11 +50,12 @@ import {
 import { entryLock, fragmentLock } from '../db/locks.js'
 import { resolveFragmentSlug } from '../db/slug.js'
 import { computeContentHash } from '../db/dedup.js'
-import { emitPipelineEvent } from '../db/pipeline-events.js'
+import { emitPipelineEvent, type PipelineStage } from '../db/pipeline-events.js'
 import { emitAuditEvent } from '../db/audit.js'
 import { producer } from './producer.js'
 import { processRegenJob, processRegenBatchJob } from './regen-worker.js'
 import { processEmbeddingRetryJob } from './embedding-retry-worker.js'
+import { processPrunePipelineEventsJob } from './prune-pipeline-events-worker.js'
 import type { SchedulerJob } from '@robin/queue'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
 import { generateKeypair } from '../keypair.js'
@@ -69,9 +70,9 @@ const bullWorker = new BullMQWorker(connection)
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
 function emitEvent(event: {
-  entryKey: string
+  entryKey: string | null
   jobId: string
-  stage: string
+  stage: PipelineStage
   status: 'started' | 'completed' | 'failed'
   fragmentKey?: string
   metadata?: Record<string, unknown>
@@ -563,14 +564,15 @@ let provisionWorker: ReturnType<typeof bullWorker.startProvisionWorker> | null =
 let schedulerWorker: ReturnType<typeof bullWorker.startSchedulerWorker> | null = null
 
 /**
- * Route scheduled jobs by discriminated type. BullMQ delivers both
- * regen-batch (midnight cron) and embedding-retry (15-min cron) via the
- * same queue, so the worker picks by `type` and forwards to the right
- * processor.
+ * Route scheduled jobs by discriminated type. BullMQ delivers regen-batch
+ * (midnight cron), embedding-retry (15-min cron), and prune-pipeline-events
+ * (daily 03:00 cron) via the same queue, so the worker picks by `type` and
+ * forwards to the right processor.
  */
 async function dispatchSchedulerJob(job: SchedulerJob): Promise<JobResult> {
   if (job.type === 'regen-batch') return processRegenBatchJob(job)
   if (job.type === 'embedding-retry') return processEmbeddingRetryJob(job)
+  if (job.type === 'prune-pipeline-events') return processPrunePipelineEventsJob(job)
   // Unreachable given the SchedulerJob union; keep a loud log for safety.
   const exhaustive: never = job
   log.error({ job: exhaustive }, 'unknown scheduler job type')

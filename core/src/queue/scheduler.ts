@@ -63,3 +63,37 @@ export async function setupEmbeddingRetryScheduler(queue: Queue): Promise<void> 
 
   log.info('embedding retry scheduler registered')
 }
+
+/**
+ * Register the daily prune-pipeline-events scheduler (#A1). prunePipelineEvents
+ * trims completed rows older than 30 days and failed rows older than 90 days
+ * (defaults inside core/src/db/pipeline-events.ts). Without this, the table
+ * grows unbounded and operator queries against /admin/diagnose slow down at
+ * the ~6-month mark.
+ *
+ * Runs once a day at 03:00 UTC — well clear of the midnight regen batch so
+ * the two crons don't both wake up at the same minute.
+ */
+export async function setupPrunePipelineEventsScheduler(queue: Queue): Promise<void> {
+  if (process.env.ENABLE_PIPELINE_EVENT_PRUNE === 'false') {
+    log.info('ENABLE_PIPELINE_EVENT_PRUNE=false, skipping scheduler setup')
+    return
+  }
+
+  await queue.upsertJobScheduler(
+    'prune-pipeline-events',
+    { pattern: '0 3 * * *' },
+    {
+      name: 'prune-pipeline-events',
+      // SEC-H6 — same signed-payload contract as the other scheduled jobs.
+      data: signJob({
+        type: 'prune-pipeline-events',
+        jobId: 'prune-pipeline-events-scheduled',
+        triggeredBy: 'scheduler',
+        enqueuedAt: new Date().toISOString(),
+      }),
+    }
+  )
+
+  log.info('prune-pipeline-events scheduler registered')
+}

@@ -9,6 +9,14 @@
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     },
+    "./browser": {
+      "import": "./dist/browser.mjs",
+      "types": "./dist/browser.d.mts"
+    },
+    "./node": {
+      "import": "./dist/node.mjs",
+      "types": "./dist/node.d.mts"
+    },
     "./prompts": {
       "import": "./dist/prompts/index.mjs",
       "types": "./dist/prompts/index.d.mts"
