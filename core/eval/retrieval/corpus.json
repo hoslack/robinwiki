@@ -1,0 +1,100 @@
+{
+  "wikis": [
+    {
+      "lookupKey": "wiki-coffee-brewing",
+      "slug": "coffee-brewing-methods",
+      "name": "Coffee Brewing Methods",
+      "type": "skill",
+      "description": "Techniques for extracting coffee from ground beans, including pour-over, French press, espresso, and cold brew.",
+      "content": "Coffee brewing is the process of using hot or cold water to extract flavor and caffeine from roasted ground coffee beans. Common methods include drip brewing, where water passes through a filter holding the grounds; immersion brewing such as the French press, where coffee steeps in water before being pressed through a mesh filter; espresso, which forces hot pressurized water through a finely ground compressed puck; and cold brew, where coffee steeps in cold water for 12 to 24 hours. Grind size, water temperature, brewing time, and the ratio of coffee to water all materially affect the final cup."
+    },
+    {
+      "lookupKey": "wiki-photosynthesis",
+      "slug": "photosynthesis-overview",
+      "name": "Photosynthesis Overview",
+      "type": "research",
+      "description": "How plants convert sunlight, water, and carbon dioxide into chemical energy stored as glucose.",
+      "content": "Photosynthesis is the biochemical process by which green plants, algae, and certain bacteria convert light energy, typically from the sun, into chemical energy stored in glucose. The reaction takes place primarily in the chloroplasts of plant cells, where the green pigment chlorophyll absorbs photons. The light-dependent reactions split water molecules and produce oxygen as a byproduct, while the Calvin cycle uses carbon dioxide from the atmosphere to synthesize glucose. Photosynthesis is the foundation of most food chains on Earth and is responsible for the oxygen content of the atmosphere."
+    },
+    {
+      "lookupKey": "wiki-bicycle-maintenance",
+      "slug": "bicycle-maintenance-basics",
+      "name": "Bicycle Maintenance Basics",
+      "type": "skill",
+      "description": "Routine bicycle care including tire inflation, chain lubrication, brake adjustment, and gear tuning.",
+      "content": "Routine bicycle maintenance keeps a bike safe and comfortable to ride. The most common tasks are checking tire pressure weekly and inflating to the pressure stamped on the sidewall, lubricating the chain every couple of hundred miles or after wet rides, ensuring brake pads engage the rim or rotor cleanly without rubbing, and adjusting derailleur cable tension so gear shifts are crisp. Cleaning the drivetrain with degreaser and a brush prevents grit from grinding away the chain and cassette. Most of these tasks need only basic hand tools."
+    },
+    {
+      "lookupKey": "wiki-jazz-improvisation",
+      "slug": "jazz-improvisation-concepts",
+      "name": "Jazz Improvisation Concepts",
+      "type": "skill",
+      "description": "Foundational ideas for improvising over jazz chord changes, including chord-scale theory and motivic development.",
+      "content": "Jazz improvisation is the art of spontaneously composing melody over a harmonic structure. A common starting point is chord-scale theory, where each chord in a progression maps to a scale that can be used to generate melodic material. Players also develop short rhythmic and melodic motifs and vary them across the changes, which gives a solo coherence beyond simple scale-running. Listening to recordings of established improvisers and transcribing their solos is the long-standing pedagogical method, since notation alone cannot capture phrasing and time feel."
+    },
+    {
+      "lookupKey": "wiki-sourdough-bread",
+      "slug": "sourdough-bread-method",
+      "name": "Sourdough Bread Method",
+      "type": "skill",
+      "description": "Baking bread leavened with a wild-yeast starter rather than commercial yeast.",
+      "content": "Sourdough bread is leavened by a culture of wild yeast and lactic-acid bacteria maintained in a flour and water starter. A typical loaf is mixed from flour, water, salt, and a portion of active starter, then bulk-fermented for several hours with periodic folds, shaped, proofed in the refrigerator overnight, and baked at high heat in a covered pot to trap steam. The long fermentation produces the characteristic tang and open crumb. Hydration, fermentation time, and starter activity are the variables a baker tunes to influence flavor and texture."
+    },
+    {
+      "lookupKey": "wiki-public-key-crypto",
+      "slug": "public-key-cryptography",
+      "name": "Public Key Cryptography",
+      "type": "research",
+      "description": "Cryptographic systems that use a key pair, one public and one private, to encrypt messages and produce digital signatures.",
+      "content": "Public key cryptography uses asymmetric key pairs: a public key that can be freely distributed and a private key that must be kept secret. A message encrypted with the public key can only be decrypted by the holder of the private key, which is the foundation of secure communication over untrusted networks. The same primitive supports digital signatures by signing a message hash with the private key; anyone with the public key can verify the signature. Common algorithms include RSA, which is based on integer factorization, and elliptic-curve schemes like Ed25519, which offer comparable security at smaller key sizes."
+    },
+    {
+      "lookupKey": "wiki-marathon-training",
+      "slug": "marathon-training-plan",
+      "name": "Marathon Training Plan",
+      "type": "skill",
+      "description": "A 16-week running program building toward a 42 km road race, including long runs, tempo work, and tapering.",
+      "content": "A typical marathon training plan spans 16 to 20 weeks of progressive running. The cornerstone is the weekly long run, building up from around 10 miles to a peak of 18 to 22 miles in the final third of the cycle. Tempo runs at a comfortably hard pace and shorter intervals at 5K race pace develop lactate threshold and running economy. Easy runs make up the bulk of weekly mileage to allow recovery. The two to three weeks before race day are a taper, with mileage cut substantially while preserving some intensity so the runner arrives at the start fresh."
+    },
+    {
+      "lookupKey": "wiki-relational-databases",
+      "slug": "relational-databases",
+      "name": "Relational Databases",
+      "type": "research",
+      "description": "Data systems that organize information into tables with rows and columns, enforce referential integrity, and support SQL queries.",
+      "content": "Relational databases organize data into tables, where each row represents a record and each column represents an attribute. Tables are linked through foreign keys that reference primary keys in other tables, enforcing referential integrity. Structured Query Language (SQL) is the standard for retrieving and manipulating relational data; common operations include join, filter, group, and aggregate. Modern relational systems like PostgreSQL, MySQL, and SQLite implement ACID transactions to guarantee consistency under concurrent writes, and most support indexing strategies such as B-tree and hash indexes to speed up lookups."
+    },
+    {
+      "lookupKey": "wiki-knife-skills",
+      "slug": "kitchen-knife-skills",
+      "name": "Kitchen Knife Skills",
+      "type": "skill",
+      "description": "Cutting techniques for safe, fast, and consistent food preparation in the kitchen.",
+      "content": "Good knife technique starts with a stable cutting surface and a sharp blade. The pinch grip, where the thumb and forefinger hold the blade just above the bolster, gives the most control. The non-knife hand uses the claw grip, with fingertips curled in and knuckles guiding the blade so the edge cannot accidentally cut a fingertip. Common cuts include the slice, the dice, and the julienne; each builds on a consistent thickness pass before crosscutting. A dull knife is more dangerous than a sharp one because it requires more force and slips more easily."
+    },
+    {
+      "lookupKey": "wiki-watercolor-painting",
+      "slug": "watercolor-painting-fundamentals",
+      "name": "Watercolor Painting Fundamentals",
+      "type": "skill",
+      "description": "Working with water-soluble pigment on absorbent paper, including layering, wet-on-wet, and managing transparency.",
+      "content": "Watercolor painting uses water-soluble pigment applied to absorbent paper, typically heavy cotton stock that holds water without warping. The medium rewards planning because once a wash is laid down it is hard to remove, and the white of the paper provides the highlights rather than opaque white paint. Common techniques include wet-on-wet, where pigment is applied to already-wet paper and bleeds softly; wet-on-dry, which gives crisp edges; and glazing, where transparent layers build depth and shadow over earlier dry washes."
+    },
+    {
+      "lookupKey": "wiki-vacuum-of-space",
+      "slug": "the-vacuum-of-space",
+      "name": "The Vacuum of Space",
+      "type": "research",
+      "description": "Properties of the near-vacuum that fills outer space, including pressure, temperature, and effects on objects.",
+      "content": "Outer space is not a perfect vacuum but a region of extremely low gas density, with around one hydrogen atom per cubic centimeter in interstellar space and even fewer in intergalactic space. Without an atmosphere there is no medium to conduct heat or transmit sound, so objects in space cool only by radiation and explosions are silent. Unprotected liquids boil rapidly because the saturation vapor pressure of water exceeds the ambient pressure. Astronauts in spacesuits maintain pressurized air supplies, and the suits themselves are layered to handle wide temperature swings between sunlight and shadow."
+    },
+    {
+      "lookupKey": "wiki-trees-deciduous",
+      "slug": "deciduous-trees",
+      "name": "Deciduous Trees",
+      "type": "research",
+      "description": "Trees that drop their leaves seasonally, including how and why leaf abscission occurs.",
+      "content": "Deciduous trees shed their leaves on an annual cycle, typically in autumn in temperate climates. As days shorten, trees stop producing chlorophyll, which lets the underlying carotenoid and anthocyanin pigments show through and produces the characteristic fall colors. The tree forms an abscission layer at the base of each leaf petiole, severing the leaf so it falls. Dropping leaves before winter conserves water and reduces the risk of branch breakage from snow loading. Common species include oak, maple, beech, birch, and ash."
+    }
+  ]
+}
