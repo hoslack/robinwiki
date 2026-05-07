@@ -69,10 +69,14 @@ export class JobSignatureError extends Error {
   override readonly name = 'JobSignatureError' as const
 }
 
+/**
+ * Minimum shape we require off a job payload to verify it. Kept structural
+ * (no index signature) so callers can pass typed job shapes like
+ * Signed<ExtractionJob> without TypeScript balking on the strict schema.
+ */
 interface JobLike {
   jobId: string
   __sig?: string
-  [key: string]: unknown
 }
 
 /**
@@ -98,11 +102,12 @@ export function signJob<T extends { jobId: string }>(
   secretOverride?: string
 ): T & { __sig: string } {
   const secret = secretOverride ?? getJobSigningSecret()
-  const { __sig: _omit, ...stripped } = job as Record<string, unknown>
+  const asRecord = job as unknown as Record<string, unknown>
+  const { __sig: _omit, ...stripped } = asRecord
   void _omit
   const body = buildSignedBody(stripped, job.jobId)
   const sig = createHmac('sha256', secret).update(body).digest('hex')
-  return { ...(stripped as T), __sig: sig }
+  return { ...(stripped as unknown as T), __sig: sig }
 }
 
 /**
@@ -116,7 +121,8 @@ export function verifyJob<T extends JobLike>(signed: T, secretOverride?: string)
   }
   const secret = secretOverride ?? getJobSigningSecret()
   const presented = signed.__sig
-  const { __sig: _omit, ...stripped } = signed as Record<string, unknown>
+  const asRecord = signed as unknown as Record<string, unknown>
+  const { __sig: _omit, ...stripped } = asRecord
   void _omit
   const body = buildSignedBody(stripped, signed.jobId)
   const expected = createHmac('sha256', secret).update(body).digest('hex')
