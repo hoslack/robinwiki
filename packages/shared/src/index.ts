@@ -1,15 +1,14 @@
-export * from './types/embedding.js'
-export * from './types/entry.js'
-export * from './types/fragment.js'
-export * from './types/wiki.js'
-export * from './types/config.js'
-export * from './prompts/index.js'
-export * from './identity.js'
-export * from './filename.js'
-export * from './slug.js'
-export * from './state-machine.js'
-export * from './wiki-links.js'
-export * from './env.js'
-export * from './schemas/sidecar.js'
-export * from './fixtures/index.js'
-export * from './fragmentTitlePrefix.js'
+/**
+ * Kitchen-sink barrel for @robin/shared.
+ *
+ * Re-exports BOTH `./browser` and `./node`, which makes this the most
+ * convenient import for node-side consumers (core, queue, agent,
+ * scripts) — they get every export in one place.
+ *
+ * **Do NOT import from this barrel in browser/client code** — it pulls
+ * in node-only modules (`node:fs` via `./prompts` and `./fixtures`)
+ * and will break Turbopack client bundling. Use `@robin/shared/browser`
+ * for browser-safe imports.
+ */
+export * from './browser.js'
+export * from './node.js'
