@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { buildOrTsQuery } from './search.js'
+import { buildOrTsQuery, rrfFuse } from './search.js'
+
+import type { SearchResult } from './search.js'
+
+const makeResult = (id: string, type: SearchResult['type'] = 'wiki'): SearchResult => ({
+  id,
+  type,
+  title: id,
+  snippet: '',
+  score: 0,
+})
 
 // Sanitiser unit tests — guard against the class of bug where raw user
 // input reaches `to_tsquery` with an unescaped operator and crashes the
@@ -54,5 +64,46 @@ describe('buildOrTsQuery', () => {
     expect(out).not.toBeNull()
     // At minimum the ASCII fragments survive:
     expect(out).toContain('caf')
+  })
+})
+
+// Wave G — RRF must accept N input lists, not just two. Wiki retrieval
+// now fans out BM25 + description-kind + hyde_synthetic-kind + a legacy
+// fallback, so the fusion logic needs to be N-list-correct.
+describe('rrfFuse', () => {
+  it('returns a single list unchanged in rank order', () => {
+    const a = [makeResult('a'), makeResult('b'), makeResult('c')]
+    const out = rrfFuse([a])
+    expect(out.map((r) => r.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('fuses three lists by summed reciprocal rank', () => {
+    // 'a' is rank 0 in two of three lists, so it should outrank 'b'
+    // (rank 0 in only one list). 'c' appears once at rank 0 — same as
+    // 'b' but should tie or rank below depending on order seen.
+    const bm25 = [makeResult('a'), makeResult('b'), makeResult('c')]
+    const desc = [makeResult('a'), makeResult('c'), makeResult('b')]
+    const hyde = [makeResult('b'), makeResult('a'), makeResult('c')]
+    const out = rrfFuse([bm25, desc, hyde])
+    expect(out[0].id).toBe('a')
+    // Sorted descending by RRF score, then we just check 'a' wins
+    expect(out.map((r) => r.id)).toContain('b')
+    expect(out.map((r) => r.id)).toContain('c')
+  })
+
+  it('handles empty lists in the fan-out without throwing', () => {
+    const a = [makeResult('a'), makeResult('b')]
+    const out = rrfFuse([a, [], []])
+    expect(out.map((r) => r.id)).toEqual(['a', 'b'])
+  })
+
+  it('preserves the type discriminator across keys', () => {
+    // Two results with the same ID but different types must NOT collapse
+    // into one entry — the key is `${type}:${id}`.
+    const wiki = [makeResult('x', 'wiki')]
+    const frag = [makeResult('x', 'fragment')]
+    const out = rrfFuse([wiki, frag])
+    expect(out).toHaveLength(2)
+    expect(out.map((r) => r.type).sort()).toEqual(['fragment', 'wiki'])
   })
 })

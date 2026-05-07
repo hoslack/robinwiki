@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { embedText, type EmbedConfig } from '@robin/agent'
 import type { DB } from '../db/client.js'
-import { fragments, wikis, people } from '../db/schema.js'
+import { fragments, wikis, people, wikiAgentSchema } from '../db/schema.js'
 
 export interface SearchResult {
   id: string
@@ -55,8 +55,10 @@ export function buildOrTsQuery(raw: string): string | null {
   return unique.join(' | ')
 }
 
-// Reciprocal Rank Fusion: score = sum(1 / (k + rank)) across all lists
-function rrfFuse(lists: SearchResult[][], k = 60): SearchResult[] {
+// Reciprocal Rank Fusion: score = sum(1 / (k + rank)) across all lists.
+// Exported for unit testing the multi-list correctness now that wiki
+// retrieval fans out across BM25 plus per-kind agent-schema lanes.
+export function rrfFuse(lists: SearchResult[][], k = 60): SearchResult[] {
   const scores = new Map<string, { result: SearchResult; score: number }>()
 
   for (const list of lists) {
@@ -251,6 +253,88 @@ async function vectorSearch(
     .slice(0, limit)
 }
 
+/**
+ * Wave G — vector search against wiki_agent_schema for a specific `kind`.
+ * Joins to wikis to project title/content for the search result, filters
+ * out soft-deleted wikis, and orders by cosine distance on the
+ * agent-schema embedding column. Tag filters do not apply to wikis (same
+ * rule as the legacy lane).
+ */
+async function wikiAgentSchemaSearch(
+  database: DB,
+  queryEmbedding: number[],
+  kind: 'description' | 'hyde_synthetic',
+  limit: number
+): Promise<SearchResult[]> {
+  const vecLiteral = JSON.stringify(queryEmbedding)
+
+  const rows = await database
+    .select({
+      id: wikis.lookupKey,
+      title: wikis.name,
+      content: wikis.content,
+      distance: sql<number>`${wikiAgentSchema.embedding} <=> ${vecLiteral}::vector`,
+    })
+    .from(wikiAgentSchema)
+    .innerJoin(wikis, sql`${wikis.lookupKey} = ${wikiAgentSchema.wikiKey}`)
+    .where(
+      sql`${wikiAgentSchema.kind} = ${kind} AND ${wikiAgentSchema.embedding} IS NOT NULL AND ${wikis.deletedAt} IS NULL`
+    )
+    .orderBy(sql`${wikiAgentSchema.embedding} <=> ${vecLiteral}::vector`)
+    .limit(limit)
+
+  return rows.map((r) => ({
+    id: r.id,
+    type: 'wiki' as const,
+    title: r.title ?? '',
+    snippet: snippet(r.content),
+    score: 1 - Number(r.distance ?? 1) / 2,
+  }))
+}
+
+/**
+ * Wave G — vector search restricted to wikis that do NOT yet have an
+ * agent-schema row of the given kind. Fallback lane during the
+ * transition: existing wikis without backfill stay searchable via
+ * wikis.embedding until they regen and get an agent-schema row.
+ */
+async function legacyWikiVectorSearchFallback(
+  database: DB,
+  queryEmbedding: number[],
+  kind: 'description',
+  limit: number
+): Promise<SearchResult[]> {
+  const vecLiteral = JSON.stringify(queryEmbedding)
+
+  const rows = await database
+    .select({
+      id: wikis.lookupKey,
+      title: wikis.name,
+      content: wikis.content,
+      distance: sql<number>`${wikis.embedding} <=> ${vecLiteral}::vector`,
+    })
+    .from(wikis)
+    .where(
+      sql`${wikis.deletedAt} IS NULL
+        AND ${wikis.embedding} IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM ${wikiAgentSchema}
+          WHERE ${wikiAgentSchema.wikiKey} = ${wikis.lookupKey}
+            AND ${wikiAgentSchema.kind} = ${kind}
+        )`
+    )
+    .orderBy(sql`${wikis.embedding} <=> ${vecLiteral}::vector`)
+    .limit(limit)
+
+  return rows.map((r) => ({
+    id: r.id,
+    type: 'wiki' as const,
+    title: r.title ?? '',
+    snippet: snippet(r.content),
+    score: 1 - Number(r.distance ?? 1) / 2,
+  }))
+}
+
 export async function hybridSearch(
   database: DB,
   query: string,
@@ -277,7 +361,32 @@ export async function hybridSearch(
     if (opts.embedConfig) {
       const vec = await embedText(query, opts.embedConfig)
       if (vec) {
-        lists.push(await vectorSearch(database, vec, { limit, tables, tags }))
+        // Fragments and people still go through the legacy single-table
+        // vector lane — neither table has a wiki_agent_schema parallel.
+        const nonWikiTables = tables.filter((t) => t !== 'wiki') as SearchTable[]
+        if (nonWikiTables.length > 0) {
+          lists.push(
+            await vectorSearch(database, vec, {
+              limit,
+              tables: nonWikiTables,
+              tags,
+            })
+          )
+        }
+
+        // Wave G — wiki vector retrieval fans out per agent-schema kind
+        // plus a legacy fallback for unbackfilled wikis. RRF natively
+        // handles the parallel inputs. Tag filters do not apply to wikis.
+        if (tables.includes('wiki') && (!tags || tags.length === 0)) {
+          const [descList, hydeList, legacyList] = await Promise.all([
+            wikiAgentSchemaSearch(database, vec, 'description', limit),
+            wikiAgentSchemaSearch(database, vec, 'hyde_synthetic', limit),
+            legacyWikiVectorSearchFallback(database, vec, 'description', limit),
+          ])
+          if (descList.length > 0) lists.push(descList)
+          if (hydeList.length > 0) lists.push(hydeList)
+          if (legacyList.length > 0) lists.push(legacyList)
+        }
       }
     }
   }
