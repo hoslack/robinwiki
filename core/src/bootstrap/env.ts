@@ -2,10 +2,28 @@ import { createConfigVar } from '@robin/shared'
 import { z } from 'zod'
 
 /**
+ * Stable error name so `assertProdSafety` can discriminate prod-safety
+ * failures from generic boot errors and aggregate them into a single
+ * operator-friendly message.
+ */
+export class ProdSafetyError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ProdSafetyError'
+  }
+}
+
+/**
  * Fail-fast check for production deploys. Runs before any other bootstrap step
  * so operators get a single clean message listing everything missing, instead
  * of piecemeal crashes deep in module initialization (crypto.ts, db/client.ts,
  * ...). No-op outside production so local dev isn't forced to set every var.
+ *
+ * Throws `ProdSafetyError` on failure (instead of `process.exit(1)`) so the
+ * `assertProdSafety` aggregator in core/src/bootstrap/assert-prod-safety.ts
+ * can collect every prod-safety failure into one message before the boot
+ * aborts. Direct callers in production must let the throw propagate so the
+ * orchestrator restarts.
  */
 export function assertProdEnv(): void {
   if (process.env.NODE_ENV !== 'production') return
@@ -26,9 +44,10 @@ export function assertProdEnv(): void {
 
   const missing = required.filter((k) => !process.env[k])
   if (missing.length) {
-    console.error(`FATAL: missing required env vars in production: ${missing.join(', ')}`)
-    console.error('See .env.example at repo root for descriptions.')
-    process.exit(1)
+    throw new ProdSafetyError(
+      `missing required env vars in production: ${missing.join(', ')}. ` +
+        'See .env.example at repo root for descriptions.',
+    )
   }
 
   // Empty / whitespace-only WIKI_ORIGIN passes the presence check above but
@@ -36,9 +55,10 @@ export function assertProdEnv(): void {
   // site — refuse to boot so the misconfig is loud.
   const wikiOrigin = process.env.WIKI_ORIGIN
   if (!wikiOrigin || wikiOrigin.trim() === '') {
-    console.error('FATAL: WIKI_ORIGIN must be a non-empty comma-separated origin list in production')
-    console.error('See .env.example at repo root for descriptions.')
-    process.exit(1)
+    throw new ProdSafetyError(
+      'WIKI_ORIGIN must be a non-empty comma-separated origin list in production. ' +
+        'See .env.example at repo root for descriptions.',
+    )
   }
 
   // SEC-H2 boot gate: cookie security flags are NODE_ENV-driven (auth.ts), so
@@ -47,13 +67,12 @@ export function assertProdEnv(): void {
   // breaking auth — operator gets one clear message naming both env vars.
   const publicUrl = process.env.SERVER_PUBLIC_URL
   if (!publicUrl?.startsWith('https://')) {
-    console.error(
-      'FATAL: SERVER_PUBLIC_URL must start with https:// in production. ' +
+    throw new ProdSafetyError(
+      'SERVER_PUBLIC_URL must start with https:// in production. ' +
         `Got: ${publicUrl ?? '(unset)'}. ` +
         'Fix by setting SERVER_PUBLIC_URL to your HTTPS deploy URL ' +
         '(e.g. https://api.example.com) and redeploying.',
     )
-    process.exit(1)
   }
 
   const warn = recommended.filter((k) => !process.env[k])
@@ -63,10 +82,6 @@ export function assertProdEnv(): void {
     )
   }
 }
-
-// Run the prod gate before Zod validation so a missing MASTER_KEY / DATABASE_URL
-// in production produces one clean error instead of a Zod-style wall of issues.
-assertProdEnv()
 
 /**
  * Prepend `https://` to a bare hostname so values like the Railway interpolation
