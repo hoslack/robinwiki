@@ -559,6 +559,9 @@ wikisRouter.post('/:id/publish', async (c) => {
     return c.json({ error: 'Cannot publish a wiki with no content' }, 400)
   }
 
+  // Mint a fresh slug whenever publishedSlug IS NULL. Pairs with the
+  // unpublish handler which nulls the slug, so an unpublish/republish
+  // cycle always produces a new public URL (#audit-M2).
   const slug = wiki.publishedSlug ?? nanoid24()
   const [updated] = await db
     .update(wikis)
@@ -583,15 +586,24 @@ wikisRouter.post('/:id/publish', async (c) => {
   return c.json(publishWikiResponseSchema.parse(updated))
 })
 
-// POST /wikis/:id/unpublish — unpublish wiki (preserves slug for re-publish)
+// POST /wikis/:id/unpublish — unpublish wiki and rotate slug
 wikisRouter.post('/:id/unpublish', async (c) => {
   const id = c.req.param('id')
   const [wiki] = await db.select().from(wikis).where(eq(wikis.lookupKey, id))
   if (!wiki) return c.json({ error: 'Not found' }, 404)
 
+  // Rotate publishedSlug on unpublish (#audit-M2). Preserving the slug
+  // across an unpublish/republish cycle reuses the original public URL,
+  // defeating the user's intent that "unpublish" revoke the link they
+  // shared. publishedAt is preserved — it records the historical
+  // first-publish time and downstream audit views read it.
   const [updated] = await db
     .update(wikis)
-    .set({ published: false, updatedAt: new Date() })
+    .set({
+      published: false,
+      publishedSlug: null,
+      updatedAt: new Date(),
+    })
     .where(eq(wikis.lookupKey, id))
     .returning()
 
