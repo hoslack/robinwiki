@@ -40,7 +40,8 @@ import { useProfile } from "@/hooks/useProfile";
 import { useStats } from "@/hooks/useStats";
 import { useLogout } from "@/hooks/useLogout";
 import { useChangePassword } from "@/hooks/useChangePassword";
-import { exportUserData, getUserKeypair } from "@/lib/api";
+import { exportUserData, revealUserKeypair } from "@/lib/api";
+import { passwordPromptDialog } from "@/lib/passwordPromptDialog";
 
 const sectionLabel: CSSProperties = {
   ...T.micro,
@@ -120,12 +121,38 @@ export default function ProfilePage() {
     }
   };
 
+  const [keypairError, setKeypairError] = useState<string | null>(null);
   const handleExportKeypair = async () => {
+    setKeypairError(null);
+    const password = await passwordPromptDialog();
+    if (!password) return; // user cancelled
     try {
-      const { data } = await getUserKeypair({ credentials: "include" });
-      if (data) triggerJsonDownload(data, "robin-keypair.json");
-    } catch {
-      // silently fail — user sees no download
+      const { data, response } = await revealUserKeypair({
+        body: { password },
+        credentials: "include",
+      });
+      if (data) {
+        triggerJsonDownload(data, "robin-keypair.json");
+        return;
+      }
+      if (response.status === 401) {
+        setKeypairError("Invalid password");
+      } else if (response.status === 429) {
+        setKeypairError("Too many attempts. Try again later.");
+      } else {
+        setKeypairError("Could not export keypair. Try again later.");
+      }
+    } catch (err) {
+      // The shared client throws ApiError on non-OK responses. Surface a
+      // useful message inline rather than silently swallowing.
+      const message = err instanceof Error ? err.message : "Unknown error";
+      if (message.toLowerCase().includes("invalid")) {
+        setKeypairError("Invalid password");
+      } else if (message.includes("429") || message.toLowerCase().includes("too many")) {
+        setKeypairError("Too many attempts. Try again later.");
+      } else {
+        setKeypairError("Could not export keypair. Try again later.");
+      }
     }
   };
 
@@ -389,6 +416,11 @@ export default function ProfilePage() {
                 icon={<KeyRound className="size-4" strokeWidth={1.5} />}
                 onClick={handleExportKeypair}
               />
+              {keypairError && (
+                <p style={{ ...T.micro, color: "var(--destructive)", margin: 0 }}>
+                  {keypairError}
+                </p>
+              )}
             </CardContent>
           </Card>
         </section>
