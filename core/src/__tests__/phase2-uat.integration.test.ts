@@ -55,12 +55,22 @@ const dbExecuteImpl = vi.fn(async (q: unknown) => {
     else params.push(chunk)
   }
   dbExecuteCalls.push({ literal, params })
-  // SELECT returns a row; UPDATE doesn't read the result.
-  return [{ id: 'acct-test-1' }] as never
+  // SELECT returns the credential account row (id + user_id) so the recover
+  // route can re-set password_reset_required on the same user. UPDATEs ignore
+  // the return value.
+  return [{ id: 'acct-test-1', user_id: 'user-test-1' }] as never
 })
 
+// auth-recover wraps the password update + flag re-set in a transaction.
+// Proxy `tx.execute` straight to the same recorder so UAT assertions can
+// inspect every SQL fragment regardless of which call site issued it.
+const dbTransactionImpl = vi.fn(
+  async (cb: (tx: { execute: typeof dbExecuteImpl }) => Promise<unknown>) =>
+    cb({ execute: dbExecuteImpl }),
+)
+
 vi.mock('../db/client.js', () => ({
-  db: { execute: dbExecuteImpl },
+  db: { execute: dbExecuteImpl, transaction: dbTransactionImpl },
 }))
 
 // emitAuditEvent fires from inside the route. We capture every call so UAT 5
@@ -149,6 +159,7 @@ beforeEach(() => {
   auditCalls.length = 0
   emitAuditEventImpl.mockClear()
   dbExecuteImpl.mockClear()
+  dbTransactionImpl.mockClear()
 })
 
 afterEach(() => {
@@ -215,19 +226,35 @@ describe('UAT 2: POST /auth/recover { secretKey, newPassword }', () => {
     const body = (await res.json()) as { ok?: boolean }
     expect(body.ok).toBe(true)
 
-    // Two execute() calls: SELECT then UPDATE.
-    expect(dbExecuteImpl).toHaveBeenCalledTimes(2)
+    // Three execute() calls: SELECT, UPDATE accounts, UPDATE users
+    // (password_reset_required = true). The two UPDATEs run inside a
+    // single db.transaction() — see auth-recover.ts.
+    expect(dbExecuteImpl).toHaveBeenCalledTimes(3)
+    expect(dbTransactionImpl).toHaveBeenCalledTimes(1)
     const selectCall = dbExecuteCalls[0]
-    const updateCall = dbExecuteCalls[1]
-    expect(selectCall?.literal).toMatch(/SELECT id FROM accounts/i)
-    expect(updateCall?.literal).toMatch(/UPDATE accounts SET password/i)
+    const updateAccountsCall = dbExecuteCalls[1]
+    const updateUsersCall = dbExecuteCalls[2]
+    expect(selectCall?.literal).toMatch(/SELECT id, user_id FROM accounts/i)
+    expect(updateAccountsCall?.literal).toMatch(/UPDATE accounts SET password/i)
+    expect(updateUsersCall?.literal).toMatch(
+      /UPDATE users SET password_reset_required = true/i,
+    )
 
     // The UPDATE binds the hashed password as a parameter, never the cleartext.
-    const updateParams = updateCall!.params.filter((v): v is string => typeof v === 'string')
+    const updateParams = updateAccountsCall!.params.filter(
+      (v): v is string => typeof v === 'string',
+    )
     expect(updateParams.some((v) => v.length > 0)).toBe(true)
     expect(updateParams.some((v) => v === newPassword)).toBe(false)
     // Account id from the SELECT round-trip is bound in the UPDATE WHERE clause.
     expect(updateParams).toContain('acct-test-1')
+
+    // The user_id from the SELECT is bound in the users-table UPDATE so the
+    // flag re-set targets the same identity that just rotated its password.
+    const userUpdateParams = updateUsersCall!.params.filter(
+      (v): v is string => typeof v === 'string',
+    )
+    expect(userUpdateParams).toContain('user-test-1')
 
     // recover.success audit event fired.
     const successAudit = auditCalls.find(
