@@ -27,6 +27,7 @@
     "@robin/caslock": "workspace:*",
     "@robin/queue": "workspace:*",
     "@robin/shared": "workspace:*",
+    "archiver": "^7.0.1",
     "better-auth": "^1.0.0",
     "diff": "^8.0.3",
     "dotenv": "^17.3.1",
@@ -42,6 +43,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@types/archiver": "^7.0.0",
     "@types/diff": "^8.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",

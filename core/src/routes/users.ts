@@ -22,6 +22,8 @@ import { validationHook } from '../lib/validation.js'
 import { getConfig, setConfig } from '../lib/config.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
+import { buildExportZip } from '../lib/export-zip.js'
+import { stream } from 'hono/streaming'
 import {
   userProfileResponseSchema,
   userStatsResponseSchema,
@@ -295,8 +297,33 @@ usersRouter.get('/activity', async (c) => {
   )
 })
 
-// POST /users/export — export all data as JSON
+// POST /users/export — export all data
+//
+// Default (no ?format or ?format=json) returns the legacy JSON shape that
+// existing API consumers and the OpenAPI manifest expect.
+//
+// ?format=zip streams a multi-file zip with markdown for wikis + entries,
+// JSON for fragments/people, and a graph.json built from the edges table.
+// See lib/export-zip.ts for the layout.
 usersRouter.post('/export', async (c) => {
+  const format = c.req.query('format')
+
+  if (format === 'zip') {
+    const archive = await buildExportZip()
+    c.header('Content-Type', 'application/zip')
+    c.header('Content-Disposition', 'attachment; filename="robin-export.zip"')
+    return stream(c, async (s) => {
+      // Bridge the Node Readable archive into hono's streaming response.
+      // Errors on the archive surface as a stream abort; the client sees a
+      // truncated download rather than a partial-success 200.
+      for await (const chunk of archive) {
+        await s.write(chunk as Uint8Array)
+      }
+    })
+  }
+
+  // Legacy JSON shape, kept verbatim so existing OpenAPI consumers don't
+  // see a behaviour change. The zip branch above is the canonical export.
   const [userWikis, userFragments, userPeople] = await Promise.all([
     db.select().from(wikis),
     db.select().from(fragments),
