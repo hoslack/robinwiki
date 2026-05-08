@@ -54,7 +54,7 @@ import type { McpResolverDeps } from './resolvers.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG, embedText } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
+import { eq, and, isNull, inArray, ne } from 'drizzle-orm'
 import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
@@ -138,7 +138,16 @@ export interface McpServerDeps {
  */
 export async function handleLogEntry(
   deps: McpServerDeps,
-  input: { content: string; source?: 'mcp' | 'api' | 'web' },
+  input: {
+    content: string
+    source?: 'mcp' | 'api' | 'web'
+    /**
+     * MCP `clientInfo` payload (Stream C / C2). Persisted to
+     * `entries.source_client` jsonb. NULL when the caller is the legacy
+     * pre-clientInfo path or a non-MCP route that didn't supply it.
+     */
+    sourceClient?: { name: string; version?: string; [key: string]: unknown } | null
+  },
   userId: string | undefined
 ) {
   if (!userId) {
@@ -180,6 +189,7 @@ export async function handleLogEntry(
       dedupHash: hash,
       type: 'thought',
       source: entrySource,
+      sourceClient: input.sourceClient ?? null,
     })
 
     const job: ExtractionJob = {
@@ -241,6 +251,14 @@ export async function handleLogFragment(
     threadSlug: string
     title?: string
     tags?: string[]
+    /**
+     * MCP `clientInfo` payload (Stream C / C2). The fragments table has
+     * no `source_client` column (migration 0007 only added it to
+     * `raw_sources`), so the value is recorded in the fragment's
+     * audit_log `detail` jsonb instead. Keeps the per-event traceability
+     * without expanding the schema beyond C2 scope.
+     */
+    sourceClient?: { name: string; version?: string; [key: string]: unknown } | null
   },
   userId: string | undefined
 ) {
@@ -370,6 +388,18 @@ export async function handleLogFragment(
       })
       .onConflictDoNothing()
 
+    // Stream E lifecycle: bump to 'learning' on attach (skip when wiki is
+    // currently being regenerated; the regen completion will reset it).
+    await deps.db
+      .update(wikisTable)
+      .set({ lifecycleState: 'learning' })
+      .where(
+        and(
+          eq(wikisTable.lookupKey, threadResult.lookupKey),
+          ne(wikisTable.lifecycleState, 'dreaming')
+        )
+      )
+
     // Insert FRAGMENT_MENTIONS_PERSON edges (one per person)
     for (const personKey of personKeys) {
       await deps.db
@@ -418,7 +448,11 @@ export async function handleLogFragment(
         fragmentKey: fragKey,
         wikiKey: threadResult.lookupKey,
         threadSlug: threadResult.slug,
-        ...(sourceClient ? { source_client: sourceClient } : {}),
+        // C2: fragments table has no source_client column; the audit
+        // detail carries the MCP clientInfo for parity with entries.
+        // Stream I plumbs clientInfo via deps.getClientInfo() so callers
+        // that don't pass input.sourceClient still get audit signal.
+        sourceClient: input.sourceClient ?? sourceClient ?? null,
       },
     })
 
