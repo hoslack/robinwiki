@@ -50,7 +50,7 @@ import type { McpResolverDeps } from './resolvers.js'
 import { resolvePerson, DEFAULT_RESOLUTION_CONFIG, embedText } from '@robin/agent'
 import type { KnownPerson } from '@robin/agent'
 import { loadOpenRouterConfig } from '../lib/openrouter-config.js'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, ne } from 'drizzle-orm'
 import { nanoid } from '../lib/id.js'
 import { logger } from '../lib/logger.js'
 import { emitAuditEvent } from '../db/audit.js'
@@ -340,6 +340,18 @@ export async function handleLogFragment(
         edgeType: 'FRAGMENT_IN_WIKI',
       })
       .onConflictDoNothing()
+
+    // Stream E lifecycle: bump to 'learning' on attach (skip when wiki is
+    // currently being regenerated; the regen completion will reset it).
+    await deps.db
+      .update(wikisTable)
+      .set({ lifecycleState: 'learning' })
+      .where(
+        and(
+          eq(wikisTable.lookupKey, threadResult.lookupKey),
+          ne(wikisTable.lifecycleState, 'dreaming')
+        )
+      )
 
     // Insert FRAGMENT_MENTIONS_PERSON edges (one per person)
     for (const personKey of personKeys) {
