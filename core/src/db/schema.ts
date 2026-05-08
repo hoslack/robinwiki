@@ -611,11 +611,11 @@ export const apiKeys = pgTable('api_keys', {
  * stored version trails the canonical version surface in /settings/outstanding.
  *
  * The composite PRIMARY KEY (wiki_key, kind) is declared in the migration
- * (0005_wiki_agent_schema.sql); Drizzle's pg-core does not support
+ * (0005_wiki_agent_schema.sql). Drizzle's pg-core does not support
  * multi-column PKs via the column-level `.primaryKey()` helper without
- * raw SQL fallthrough, so we keep the constraint authoritative in the
- * migration file. The kind index is declared here so drizzle-kit and the
- * SQL stay in sync when future migrations diff against the schema.
+ * raw SQL fallthrough, so the constraint stays authoritative in the
+ * migration file. The kind index is declared here so drizzle-kit and
+ * the SQL stay in sync when future migrations diff against the schema.
  */
 export const wikiAgentSchema = pgTable(
   'wiki_agent_schema',

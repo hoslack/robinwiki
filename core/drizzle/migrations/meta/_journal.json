@@ -38,6 +38,20 @@
       "breakpoints": true
     },
     {
+      "idx": 5,
+      "version": "7",
+      "when": 1778976000000,
+      "tag": "0005_wiki_agent_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778976001000,
+      "tag": "0006_wiki_types_internal_framing",
+      "breakpoints": true
+    },
+    {
       "idx": 7,
       "version": "7",
       "when": 1778457607000,

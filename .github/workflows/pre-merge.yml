@@ -211,6 +211,9 @@ jobs:
             sleep 1
           done
 
+      - name: Build workspace packages
+        run: pnpm --filter './packages/*' build
+
       - name: Generate wiki API client from artifact
         env:
           ROBIN_SERVER: http://localhost:9090

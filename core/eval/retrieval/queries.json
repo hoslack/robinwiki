@@ -1,0 +1,144 @@
+{
+  "queries": [
+    {
+      "id": "literal-photosynthesis",
+      "query": "photosynthesis",
+      "pathway": "bm25",
+      "expectedTopWiki": "wiki-photosynthesis",
+      "rationale": "Single literal term that matches the wiki name and body verbatim. BM25 should win cleanly."
+    },
+    {
+      "id": "literal-sourdough",
+      "query": "sourdough starter",
+      "pathway": "bm25",
+      "expectedTopWiki": "wiki-sourdough-bread",
+      "rationale": "Both words appear verbatim in the body."
+    },
+    {
+      "id": "literal-rsa-elliptic-curve",
+      "query": "RSA elliptic curve",
+      "pathway": "bm25",
+      "expectedTopWiki": "wiki-public-key-crypto",
+      "rationale": "Both algorithm names appear in the body. BM25 OR-join + tsrank handles this."
+    },
+    {
+      "id": "literal-french-press",
+      "query": "French press",
+      "pathway": "bm25",
+      "expectedTopWiki": "wiki-coffee-brewing",
+      "rationale": "Common-noun lexical hit. BM25 wins."
+    },
+    {
+      "id": "semantic-bicycle",
+      "query": "keeping a bike running smoothly",
+      "pathway": "description",
+      "expectedTopWiki": "wiki-bicycle-maintenance",
+      "rationale": "No lexical overlap with the body — the description-kind embedding is the path."
+    },
+    {
+      "id": "semantic-knife",
+      "query": "how to chop vegetables safely",
+      "pathway": "description",
+      "expectedTopWiki": "wiki-knife-skills",
+      "rationale": "Description embedding picks up the cutting/safety semantic."
+    },
+    {
+      "id": "semantic-jazz",
+      "query": "soloing over chord progressions",
+      "pathway": "description",
+      "expectedTopWiki": "wiki-jazz-improvisation",
+      "rationale": "Description-kind embedding bridges the vocabulary gap."
+    },
+    {
+      "id": "semantic-marathon",
+      "query": "preparing for a long-distance race",
+      "pathway": "description",
+      "expectedTopWiki": "wiki-marathon-training",
+      "rationale": "No verbatim overlap, but the description embedding captures the gist."
+    },
+    {
+      "id": "hyde-coffee-questions",
+      "query": "what kind of coffee should I make at home",
+      "pathway": "hyde",
+      "expectedTopWiki": "wiki-coffee-brewing",
+      "rationale": "Conversational query in user vocabulary. HyDE synthetic passage explicitly covers questions like this."
+    },
+    {
+      "id": "hyde-bike-pump",
+      "query": "do I need to pump up my bike tires",
+      "pathway": "hyde",
+      "expectedTopWiki": "wiki-bicycle-maintenance",
+      "rationale": "User register, not source register. HyDE bridges the gap."
+    },
+    {
+      "id": "hyde-watercolor-bleed",
+      "query": "why is my paint bleeding into the wet parts",
+      "pathway": "hyde",
+      "expectedTopWiki": "wiki-watercolor-painting",
+      "rationale": "Conversational beginner question. HyDE passage covers wet-on-wet behavior in user phrasing."
+    },
+    {
+      "id": "hyde-bread-tang",
+      "query": "why does my homemade bread taste sour",
+      "pathway": "hyde",
+      "expectedTopWiki": "wiki-sourdough-bread",
+      "rationale": "User-language symptom question. HyDE binds it to the source's mention of fermentation tang."
+    },
+    {
+      "id": "blend-database-tables",
+      "query": "data organized in tables and rows",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-relational-databases",
+      "rationale": "Lexical overlap with wiki body plus semantic match on description. RRF blend should beat any single lane."
+    },
+    {
+      "id": "blend-no-air",
+      "query": "what happens to a body in space without air",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-vacuum-of-space",
+      "rationale": "Mixed vocabulary — partial lexical (\"space\", \"air\") plus semantic (effects of vacuum)."
+    },
+    {
+      "id": "blend-leaves-fall",
+      "query": "why do leaves change color and fall",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-trees-deciduous",
+      "rationale": "Lexical hit on \"leaves\" plus semantic match on the autumn explanation."
+    },
+    {
+      "id": "blend-keys-encryption",
+      "query": "how does encryption with two keys work",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-public-key-crypto",
+      "rationale": "Conversational paraphrase of asymmetric crypto. Mixed signal."
+    },
+    {
+      "id": "blend-plant-energy",
+      "query": "how plants make their own food",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-photosynthesis",
+      "rationale": "Common-knowledge paraphrase that doesn't appear verbatim. Description and HyDE should both fire."
+    },
+    {
+      "id": "ambiguous-running",
+      "query": "training for a big race",
+      "pathway": "blend",
+      "expectedTopWiki": "wiki-marathon-training",
+      "rationale": "Ambiguous outside running context but the description-kind embedding wins."
+    },
+    {
+      "id": "literal-cold-brew",
+      "query": "cold brew",
+      "pathway": "bm25",
+      "expectedTopWiki": "wiki-coffee-brewing",
+      "rationale": "Two-word literal lookup. BM25 wins."
+    },
+    {
+      "id": "hyde-jazz-beginner",
+      "query": "I'm new to jazz, how do I start improvising",
+      "pathway": "hyde",
+      "expectedTopWiki": "wiki-jazz-improvisation",
+      "rationale": "Conversational onboarding question. HyDE's user-vocabulary passage matches this register."
+    }
+  ]
+}
