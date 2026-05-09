@@ -134,7 +134,7 @@ app.onError((err, c) => {
 })
 
 const openapiSpec = JSON.parse(readFileSync(new URL('../openapi.json', import.meta.url), 'utf-8'))
-const faviconBuf = readFileSync(new URL('../assets/favicon.ico', import.meta.url))
+const faviconBuf = readFileSync(new URL('../favicon.ico', import.meta.url))
 
 /***********************************************************************
  * ## Pre-auth routes (+ session-gated admin)
