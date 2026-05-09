@@ -5,6 +5,121 @@ All notable changes to Robin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-05-09
+
+Stability + cost-visibility release. Fragmentation prompt v3, regen debounce during active ingest, on-demand regen surface for MCP clients, scheduled-job heartbeat infrastructure.
+
+### Added
+
+- `regen_now` MCP tool. Triggers an on-demand regen for a single wiki, bypassing the auto-regen flag and the debounce. Pairs with the new `regen_status` tool that surfaces per-wiki regen counts and last-run cost so MCP clients can size the request before firing.
+- `validateOpenRouterKey` helper plus `POST /users/openrouter-key/validate`. Onboarding now blocks completion until the key resolves against OpenRouter; existing instances get a fail-loud warning at boot when the key is missing or rejected.
+- `scheduled_jobs` table with `recordJobRun` helper. Replaces the prune-pipeline-events audit-log entry as the canonical heartbeat surface. New jobs register through the helper; the existing prune cron is migrated over.
+- `core/scripts/backfill-wiki-agent-schema.ts` one-shot script for healing instances whose `wiki_agent_schema` rows drifted against the wiki body.
+- Full favicon set generated from the canonical Robin logo, plus web-app manifest and Next metadata wiring. Browser tab and PWA install both render the brand asset.
+- `ensureAgentSchema` helper unifying agent_schema writes across POST `/wikis`, PUT `/wikis/:id`, regen, embedding-retry-worker, and the heal path.
+
+### Changed
+
+- Per-wiki regen debounce during active ingest. While entries for a wiki are still in the pipeline, regen suppresses re-fires until the in-flight batch settles. Reduces redundant regens when capturing a long thread.
+- Fragmentation prompt promoted to v3. Targets richer fragments and retains reflective claims that v2 tended to drop.
+- `wiki_agent_schema` rows now refresh automatically when a wiki's `description` changes, and the description-kind row is seeded at wiki creation rather than on first regen.
+- Audit-log detail for entry-ingest no longer double-stamps `source_client`; the column on `entries` is the single source of truth.
+- Generated wiki SDK regenerated against the current OpenAPI spec; the `publishedOrigin` cast that masked a type drift was dropped.
+
+### Fixed
+
+- Wiki-type validation contract restored for `slug`, `belief`, `research`, and `decision` types. A regression in v0.2.0's validation pass was rejecting valid YAML for these four types.
+- Stale `wiki_agent_schema` rows that survived a description change are now healed by the auto-refresh path. Combined with the one-shot backfill script for instances already in drift.
+
+## [0.2.0] - 2026-05-08
+
+First feature-complete Robin release. Adds AI cost telemetry, the wiki retrieval substrate (graph package, agent-schema, HyDE), incremental regen, citation rendering, fragment lineage, publishing surface, MCP skill packs, and a markdown export.
+
+### Breaking changes
+
+- **Wiki regen behavior changed for wikis with new fragments.** v0.2.0 introduces incremental regen (E1): the partition handed to Quill is now `{NEW, UPDATED, REMOVED}` against `last_rebuilt_at`, not the full fragment set. Wikis regenned for the first time post-deploy may show 1 to 3 regens of body drift before the partition settles. No action required; the drift self-corrects.
+- **`migrations_meta` table required.** A new `migrations_meta` table backs the journal-hash drift detector. The migration is idempotent, but the boot path now refuses to start in production when the on-disk Drizzle journal SHA does not match the recorded value (forced push, cherry-pick, or rebased migration scenarios).
+- **MCP tools reinstated.** `publish_wiki` and `unpublish_wiki` are back on the MCP surface after being temporarily removed during v0.1.0 hardening. Re-paste your MCP URL is not required; tools become available on next handshake.
+- **Wiki-type taxonomy renames.** `collection` is now `research`; `principles` is now `principle`. Existing rows migrate automatically. Custom YAMLs that referenced the old slugs need to be updated.
+
+### Added
+
+#### AI cost telemetry and budget caps
+- `usage_events` table records every OpenRouter call with model, prompt tokens, completion tokens, and cost.
+- `/settings/spend` dashboard renders rolling 7-day and 30-day spend by model and by feature, plus configurable budget caps.
+- `GET /fragments/:id/history` surfaces the per-fragment edit timeline.
+
+#### Knowledge graph and retrieval substrate
+- `@robin/graph` workspace package with utilities and a typed edge adapter.
+- `wiki_agent_schema` table holding retrieval-optimized representations distinct from the human-edited wiki body. See `docs/architecture/wiki-agent-schema.md`.
+- `wiki_types.internal_framing` column.
+- HyDE retrieval-index generator wired into regen. Synthetic example fragments per wiki improve cosine retrieval over the prose body alone.
+- Retrieval cutover: search and the classifier read `wiki_agent_schema` first, with legacy fallback.
+- Hand-curated retrieval eval corpus and queries for regression tracking.
+
+#### Citations, lineage, and evolution
+- Numbered superscript citations rendered inline in wiki bodies, threaded with a doc-wide bibliography section. Fragment refs become `[1]`, `[2]`, ... with anchors on the references list (#245).
+- Fragment detail page expanded into a full lineage view: infobox (type, state, tags, dates), entry origin, evolution timeline, wiki references, related fragments. One page, full lineage.
+- Fragment evolution timeline with word-level diffs across edit history.
+
+#### Wiki management
+- Incremental regen partition (E1). Quill receives `{NEW, UPDATED, REMOVED}` against `last_rebuilt_at`, not the full fragment set. Reduces token spend per regen.
+- `wikis.lifecycle_state` column with values `learning`, `dreaming`, `filed`. Bumps to `learning` on every `FRAGMENT_IN_WIKI` edge insert.
+- `wikis.auto_regen` and `wikis.last_regen_at` columns (migration 0004). Auto-regen defaults to `false`, opt-in per wiki.
+- Regen-batch worker sweeps `auto_regen=true` wikis with `learning` state on a schedule.
+- `DELETE /wikis/:id/fragments/:fragmentId` un-attach endpoint.
+- `PATCH /wikis/:id/auto-regen` toggle endpoint.
+- `attach_fragments` MCP tool.
+- Fragment-relationship backfill (cron + admin endpoint + settings counter) for instances that ingested before the `RELATED_TO` edge type existed.
+
+#### MCP skill packs and source-client telemetry
+- Top-level `skills/` directory shipping the Capture pack alongside imported `log-to-robin` and `knowledge-system-guide` skills.
+- `list_skills` MCP tool plus a server-side alias registry with install and remove APIs.
+- MCP `clientInfo` handshake captured into `entries.source_client` column. Audit detail no longer needs to re-derive client identity.
+
+#### Publishing
+- Publish flow extracted into `services/publish` with `publish_wiki` and `unpublish_wiki` MCP tools reinstated.
+- Published URL on the AddWiki success modal is now clickable and uses `publishedOrigin`.
+
+#### Backups and providers
+- `GET /users/export?format=zip` returns markdown bodies plus a graph dump, suitable for offline backup.
+- `/settings/providers` read-only page showing the active OpenRouter configuration.
+
+#### Recovery and onboarding
+- Forgot-password link on `/login`.
+- `/account/initial-password-reset` page gated behind `mustResetPassword` session field.
+- `POST /users/clear-reset-flag` endpoint clears the flag after successful reset.
+- Drizzle journal-hash drift detection at boot. Production refuses to start when the on-disk migration journal SHA does not match the recorded value; dev and test auto-heal with a warning.
+- `migrations_meta` table backing the drift detector.
+- Daily prune-pipeline-events cron, with audit + pipeline event emission from embedding-retry, regen-worker, and the fragment-stage workers.
+- `GET /admin/diagnose/:entryKey` surfaces the full pipeline state for an entry.
+
+### Changed
+
+- Wiki body retrieval and the classifier now read `wiki_agent_schema` rows; the legacy "embed the rendered prose" path remains as a fallback only.
+- Fragment classification emits `RELATED_TO` edges between similar fragments at classify time, plus `related_detected` audit events surfacing in the timeline.
+- Wiki sidecar payloads (refs, infobox, citation declarations) persist on regen rather than being recomputed per request.
+- Spawn endpoint now writes `WIKI_RELATED_TO_WIKI` edges between parent and spawned child.
+- `pipeline_events.entry_key` relaxed to nullable so queue-internal events without an entry context can be recorded.
+- `pipeline_events` stage taxonomy standardized to a 5-name union.
+- Shared package barrels split into explicit browser and node surfaces; the wiki bundle no longer pulls `node:fs` transitively.
+- Generated wiki SDK regenerated against the current OpenAPI spec, including entry sidecar fields and wiki bouncer/publish/collections endpoints.
+
+### Fixed
+
+- MCP `search` tool and HTTP `/search` now emit identical payloads, validated through `searchResponseSchema`.
+- Wiki infobox floats right so prose wraps around it (#229 visual regression).
+- `additionalFields.fieldName` for `mustResetPassword` now points at the drizzle schema key, not the column name.
+
+### Security
+
+- `assertProdSafety` aggregator wired into the boot path, with a `PUBLIC_ROUTES` allowlist asserted by `route-allowlist.test.ts`.
+- Process crash handlers (`uncaughtException`, `unhandledRejection`) now `NODE_ENV`-aware (SEC-L4). Production exits the process; dev logs and continues.
+- YAML loaders use `FAILSAFE_SCHEMA` to disallow custom tags and prototype pollution paths in user-supplied wiki-type prompts (SEC-L3).
+- `GET /users/activity` capped at limit 200 to prevent unbounded reads (SEC-L1).
+
+This release closes Phase 6 of the v0.1.0 security audit alongside the feature work.
+
 ## [0.1.0] — 2026-05-07
 
 First public release. Internal security hardening sweep across six phases of audit remediation.
@@ -59,4 +174,6 @@ First public release. Internal security hardening sweep across six phases of aud
 
 This release closes the findings from an internal security audit dated 2026-04-20: four critical, eight high, nine medium, four low. Phases 1 through 5 ship with this release. Phase 6 (low-severity cleanup, prod-safety aggregator wiring, default-deny route test) is queued and will ship in a follow-up release.
 
+[0.2.1]: https://github.com/withrobinhq/robinwiki/releases/tag/v0.2.1
+[0.2.0]: https://github.com/withrobinhq/robinwiki/releases/tag/v0.2.0
 [0.1.0]: https://github.com/withrobinhq/robinwiki/releases/tag/v0.1.0
