@@ -77,7 +77,7 @@ const fakeDeps = {
   loadUserPeople: async () => [],
 }
 
-describe('handleRegenNow — on-demand regen tool', () => {
+describe('handleRegenNow - on-demand regen tool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })

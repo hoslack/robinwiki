@@ -72,7 +72,7 @@ const fakeDeps = {
   loadUserPeople: async () => [],
 }
 
-describe('handleRegenStatus — observability tool', () => {
+describe('handleRegenStatus - observability tool', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })

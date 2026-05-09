@@ -100,7 +100,7 @@ vi.mock('../db/schema.js', () => ({
 const { getRegenStatus } = await import('./regen-debounce.js')
 const { db: mockDb } = await import('../db/client.js')
 
-describe('getRegenStatus — snapshot assembly', () => {
+describe('getRegenStatus - snapshot assembly', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     dbResponseQueue.length = 0

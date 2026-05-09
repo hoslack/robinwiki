@@ -190,7 +190,7 @@ describe('processRegenBatchJob honours the per-wiki debounce', () => {
 
   it('does NOT enqueue a wiki whose last fragment edge landed inside the window', async () => {
     const now = Date.now()
-    const fresh = new Date(now - 30_000) // 30s ago — well inside the 5min window
+    const fresh = new Date(now - 30_000) // 30s ago - well inside the 5min window
     stageDbResponses([
       [{ count: 0 }],                                    // unfiled count
       [{ lookupKey: 'wiki-chatty' }],                    // new-fragment wikis (Reason 2, debounce-gated)
@@ -252,7 +252,7 @@ describe('processRegenBatchJob honours the per-wiki debounce', () => {
     expect(mockEnqueueRegen).toHaveBeenCalledTimes(1)
     const arg = mockEnqueueRegen.mock.calls[0][0] as { objectKey: string }
     expect(arg.objectKey).toBe('wiki-stuck')
-    // Asserting `fresh` is referenced — the bypass should NOT consult it.
+    // Asserting `fresh` is referenced - the bypass should NOT consult it.
     void fresh
   })
 })

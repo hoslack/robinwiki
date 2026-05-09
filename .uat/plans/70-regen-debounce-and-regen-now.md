@@ -1,4 +1,4 @@
-# 70 — Regen debounce and on-demand regen (QA Issue 6)
+# 70 - Regen debounce and on-demand regen (QA Issue 6)
 
 ## What it proves
 
@@ -37,10 +37,10 @@ pieces:
 
 ## Endpoint map
 
-- `POST /api/auth/sign-in/email`              — cookie session
-- `POST /api/users/mcp-token`                  — mint MCP JWT
+- `POST /api/auth/sign-in/email`              - cookie session
+- `POST /api/users/mcp-token`                  - mint MCP JWT
 - `POST /mcp/?token=$MCP_TOKEN` (JSON-RPC):
-  - `tools/list`             — assert `regen_now`, `regen_status` visible
+  - `tools/list`             - assert `regen_now`, `regen_status` visible
   - `tools/call regen_now`
   - `tools/call regen_status`
   - `tools/call log_fragment` (for the burst-ingest test)
@@ -65,7 +65,7 @@ pass() { PASS=$((PASS+1)); echo "  + $1"; }
 fail() { FAIL=$((FAIL+1)); echo "  ! $1"; }
 skip() { SKIP=$((SKIP+1)); echo "  - $1"; }
 
-echo "70 — Regen debounce and on-demand regen (QA Issue 6)"
+echo "70 - Regen debounce and on-demand regen (QA Issue 6)"
 echo "    REGEN_DEBOUNCE_MS=$DEBOUNCE_MS"
 echo ""
 
@@ -84,7 +84,7 @@ MCP_TOKEN_VALUE=$(jq -r '.token // empty' /tmp/uat-70-token.json 2>/dev/null)
 MCP_TOKEN="${MCP_TOKEN:-$MCP_TOKEN_VALUE}"
 if [ -n "$MCP_TOKEN" ]; then pass "have MCP token"; else fail "no MCP token"; fi
 
-# 3. tools/list — confirm regen_now and regen_status present.
+# 3. tools/list - confirm regen_now and regen_status present.
 TOOLS_LIST=$(curl -s -X POST -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' \
   "$SERVER_URL/mcp/?token=$MCP_TOKEN" | tr -d '\r')
