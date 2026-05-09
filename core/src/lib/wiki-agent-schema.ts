@@ -334,7 +334,57 @@ export async function countOutstandingAgentSchemaWikis(
   return Number(rows[0]?.count ?? 0)
 }
 
-// Suppress unused-import warning when `and` is ever needed (e.g. by future
-// kind-aware queries). Kept on the import line because the module is
-// expected to grow with additional kinds.
-void and
+/**
+ * Wiki keys that need a kind='description' row written or refreshed.
+ * Targets two failure cases:
+ *
+ *   1. The description row is missing entirely (newly-created wikis pre-fix
+ *      or wikis that pre-date the create-time bootstrap in POST /wikis).
+ *   2. The description row exists but its embedding is NULL (the create-time
+ *      embed call failed and the heal pass needs to retry).
+ *
+ * Soft-deleted wikis are excluded. Wikis with empty description are excluded;
+ * there is nothing to embed.
+ */
+export async function findWikisMissingDescriptionRow(
+  database: DB,
+  limit: number
+): Promise<Array<{ wikiKey: string; description: string }>> {
+  const rows = await database.execute<{ wiki_key: string; description: string }>(sql`
+    SELECT w.lookup_key AS wiki_key, w.description AS description
+    FROM ${wikis} AS w
+    LEFT JOIN ${wikiAgentSchema} AS a
+      ON a.wiki_key = w.lookup_key AND a.kind = 'description'
+    WHERE w.deleted_at IS NULL
+      AND w.description IS NOT NULL
+      AND length(trim(w.description)) > 0
+      AND (a.wiki_key IS NULL OR a.embedding IS NULL)
+    ORDER BY w.created_at ASC
+    LIMIT ${limit}
+  `)
+  return rows.map((r) => ({ wikiKey: r.wiki_key, description: r.description }))
+}
+
+/**
+ * Wiki keys that need a kind='hyde_synthetic' row written. Targets the case
+ * where the wiki has no row at all for this kind. The HyDE call is gated on
+ * description being present so the prompt has a usable [CONTEXT] block.
+ */
+export async function findWikisMissingHydeRow(
+  database: DB,
+  limit: number
+): Promise<string[]> {
+  const rows = await database.execute<{ wiki_key: string }>(sql`
+    SELECT w.lookup_key AS wiki_key
+    FROM ${wikis} AS w
+    LEFT JOIN ${wikiAgentSchema} AS a
+      ON a.wiki_key = w.lookup_key AND a.kind = 'hyde_synthetic'
+    WHERE w.deleted_at IS NULL
+      AND w.description IS NOT NULL
+      AND length(trim(w.description)) > 0
+      AND a.wiki_key IS NULL
+    ORDER BY w.created_at ASC
+    LIMIT ${limit}
+  `)
+  return rows.map((r) => r.wiki_key)
+}
