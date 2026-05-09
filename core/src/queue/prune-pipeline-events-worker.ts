@@ -1,19 +1,22 @@
 import type { JobResult, PrunePipelineEventsJob } from '@robin/queue'
 import { db } from '../db/client.js'
 import { prunePipelineEvents } from '../db/pipeline-events.js'
-import { emitAuditEvent } from '../db/audit.js'
+import { recordJobRun } from '../lib/scheduled-jobs.js'
 import { logger } from '../lib/logger.js'
 
 const log = logger.child({ component: 'prune-pipeline-events' })
 
+const JOB_NAME = 'prune_pipeline_events'
+
 /**
  * Daily prune of pipeline_events. Defaults inside prunePipelineEvents trim
- * completed rows older than 30 days and failed rows older than 90 days — the
+ * completed rows older than 30 days and failed rows older than 90 days, the
  * same retention rule that's been coded but uncalled until now.
  *
- * Emits an audit row regardless of how many rows were pruned so operators can
- * confirm the cron actually fires (RESEARCH §5: "ensure the recurring job
- * actually runs (add an audit row from the scheduler itself)").
+ * Records a heartbeat in scheduled_jobs after every run (issue #322) so
+ * operators can confirm the cron actually fires. The previous pattern
+ * wrote into audit_log; that table is reserved for user-visible state
+ * changes, so the heartbeat moved here.
  */
 export async function processPrunePipelineEventsJob(
   job: PrunePipelineEventsJob
@@ -26,14 +29,13 @@ export async function processPrunePipelineEventsJob(
     const elapsed = Math.round(performance.now() - t0)
     log.info({ jobId: job.jobId, deleted, ms: elapsed }, 'prune-pipeline-events done')
 
-    await emitAuditEvent(db, {
-      entityType: 'pipeline_events',
-      entityId: 'retention',
-      eventType: 'pruned',
-      source: 'system',
-      summary: `Pruned ${deleted} pipeline_events row(s)`,
-      detail: { jobId: job.jobId, deleted, durationMs: elapsed },
-    })
+    await recordJobRun(
+      db,
+      JOB_NAME,
+      'completed',
+      { jobId: job.jobId, deleted },
+      elapsed
+    )
 
     return {
       jobId: job.jobId,
@@ -42,15 +44,15 @@ export async function processPrunePipelineEventsJob(
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
+    const elapsed = Math.round(performance.now() - t0)
     log.error({ jobId: job.jobId, error: message }, 'prune-pipeline-events failed')
-    await emitAuditEvent(db, {
-      entityType: 'pipeline_events',
-      entityId: 'retention',
-      eventType: 'prune_failed',
-      source: 'system',
-      summary: `Prune failed: ${message}`,
-      detail: { jobId: job.jobId, error: message },
-    })
+    await recordJobRun(
+      db,
+      JOB_NAME,
+      'failed',
+      { jobId: job.jobId, error: message },
+      elapsed
+    )
     throw err
   }
 }
