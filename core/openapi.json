@@ -3435,6 +3435,11 @@
             "nullable": true,
             "default": null
           },
+          "publishedOrigin": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
           "collections": {
             "type": "array",
             "items": {
@@ -3574,6 +3579,11 @@
             "default": false
           },
           "publishedSlug": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
+          "publishedOrigin": {
             "type": "string",
             "nullable": true,
             "default": null
@@ -3730,6 +3740,11 @@
                   "nullable": true,
                   "default": null
                 },
+                "publishedOrigin": {
+                  "type": "string",
+                  "nullable": true,
+                  "default": null
+                },
                 "collections": {
                   "type": "array",
                   "items": {
@@ -3880,6 +3895,11 @@
             "nullable": true,
             "default": null
           },
+          "publishedOrigin": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
           "collections": {
             "type": "array",
             "items": {
@@ -4025,6 +4045,11 @@
             "type": "string",
             "nullable": true
           },
+          "publishedOrigin": {
+            "type": "string",
+            "nullable": true,
+            "default": null
+          },
           "publishedAt": {
             "type": "string",
             "format": "date-time",
@@ -4038,7 +4063,8 @@
           "published",
           "publishedSlug",
           "publishedAt",
-          "regenerate"
+          "regenerate",
+          "publishedOrigin"
         ],
         "additionalProperties": false
       },
