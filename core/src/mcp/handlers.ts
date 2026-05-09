@@ -64,10 +64,14 @@ const log = logger.child({ component: 'mcp' })
 
 /**
  * Read the MCP `clientInfo` snapshot off the deps and shape it for
- * `auditLog.detail.source_client`. Returns `undefined` if the deps don't
- * carry the accessor (legacy callers, tests) or if the handshake has not
- * yet populated client info. The caller spreads the result into the audit
- * detail object -- keeping the field absent (vs `null`) means non-MCP
+ * `auditLog.detail.source_client` on entity types that have no dedicated
+ * column (fragment, wiki, wiki_type, group). For raw_source entries the
+ * value lands on `entries.source_client` directly via the row insert, so
+ * the audit detail does not carry it.
+ *
+ * Returns `undefined` if the deps don't carry the accessor (legacy
+ * callers, tests) or if the handshake has not yet populated client info.
+ * The caller spreads the result into the audit detail object so non-MCP
  * writes don't pick up a junk-drawer key.
  */
 function readSourceClient(deps: McpServerDeps): McpClientInfo | undefined {
@@ -117,8 +121,10 @@ export interface McpServerDeps {
   /**
    * Lazy accessor for the MCP `clientInfo` handshake. Returns `undefined`
    * before the transport handshake completes (or for non-MCP callers in
-   * tests). Persisted into audit-event `detail.source_client` and -- once
-   * Stream C2 lands the schema migration -- onto `entries.source_client`.
+   * tests). Persisted onto `entries.source_client` for raw_source rows
+   * (column write), and onto `audit_log.detail.source_client` for entity
+   * types that have no dedicated column (fragment, wiki, wiki_type,
+   * group).
    */
   getClientInfo?: () => McpClientInfo | undefined
 }
@@ -202,7 +208,11 @@ export async function handleLogEntry(
     }
     await deps.producer.enqueueExtraction(job)
 
-    const sourceClient = readSourceClient(deps)
+    // v0.2.1: client-info now lives on `entries.source_client` (jsonb),
+    // written by the insert above. The audit-log row no longer duplicates
+    // it in `detail` -- one source of truth for "which client logged this
+    // entry". Other entity types (fragment, wiki, wiki_type, group) keep
+    // the detail stamp because no dedicated column exists for them.
     await emitAuditEvent(deps.db, {
       entityType: 'raw_source',
       entityId: entryKey,
@@ -212,7 +222,6 @@ export async function handleLogEntry(
       detail: {
         entryKey,
         source: entrySource,
-        ...(sourceClient ? { source_client: sourceClient } : {}),
       },
     })
 
