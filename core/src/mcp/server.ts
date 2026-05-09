@@ -22,7 +22,7 @@ import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { listWikis, getWiki, getFragment, findPersonById, findPersonByQuery, listWikiTypes, briefPerson, resolveWikiBySlug } from './resolvers.js'
 import type { McpResolverDeps } from './resolvers.js'
-import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleAttachFragments, handlePublishWiki, handleUnpublishWiki } from './handlers.js'
+import { handleLogEntry, handleLogFragment, handleCreateWikiType, handleCreateWiki, handleEditWiki, handleAttachFragments, handlePublishWiki, handleUnpublishWiki, handleRegenNow } from './handlers.js'
 import type { McpServerDeps } from './handlers.js'
 import { wikis, wikiTypes, edges, auditLog, groups, groupWikis } from '../db/schema.js'
 import { hybridSearch } from '../lib/search.js'
@@ -243,6 +243,26 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     },
     async ({ wikiSlug }, extra) => {
       return handleUnpublishWiki(deps, { wikiSlug }, extra.authInfo?.clientId as string)
+    }
+  )
+
+  server.registerTool(
+    'regen_now',
+    {
+      description:
+        'Force an immediate regen of a single wiki, bypassing the ' +
+        'per-wiki debounce window. Use when the user explicitly asks for ' +
+        'a refresh during an active ingest burst (where the scheduler ' +
+        'would normally hold off until the wiki has been quiet for a few ' +
+        'minutes). Returns the queued job id and timestamp; the regen ' +
+        'itself runs asynchronously on the regen worker. Pass either the ' +
+        'wiki lookupKey or the slug.',
+      inputSchema: {
+        wikiKey: z.string().describe('Wiki lookupKey or slug (from list_wikis or get_wiki)'),
+      },
+    },
+    async ({ wikiKey }, extra) => {
+      return handleRegenNow(deps, { wikiKey }, extra.authInfo?.clientId as string)
     }
   )
 
