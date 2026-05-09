@@ -1,5 +1,5 @@
 name: QuillTheWriter
-version: 3
+version: 4
 category: generation
 display_label: "Decision"
 display_description: "A record of a discrete choice, its context, alternatives considered, and reasoning"
@@ -58,14 +58,13 @@ template: |
   - Related wiki: [[wiki:<slug>]]         e.g. [[wiki:my-project]]
   - Entry:        [[entry:<slug>]]
 
-  Slugs MUST be present in the [PEOPLE], [FRAGMENTS], [ENTRIES], or
+  Slugs MUST be present in the [PEOPLE], fragment inputs, [ENTRIES], or
   [RELATED WIKIS] inputs provided below. If no slug exists for the
   entity, write its name in plain text. Do not invent slugs.
 
   [DOCUMENT STRUCTURE]
   {{structure}}
 
-  [FRAGMENTS]
   {{fragments}}
 
   {{#if timeline}}
@@ -144,7 +143,7 @@ template: |
     ]
 
   Rules:
-  - fragmentIds MUST be drawn from the [FRAGMENTS] input. Do not invent.
+  - fragmentIds MUST be drawn from the fragment inputs. Do not invent.
   - sectionAnchor MUST correspond to a heading you wrote. Slugify
     by lowercasing, trimming, and replacing spaces/punctuation with hyphens.
   - Omit a section from citations if no fragment grounds it.
