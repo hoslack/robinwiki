@@ -8,9 +8,12 @@
 # Per-slug specialization is additive: drop `${slug}.yaml` alongside this file
 # and the loader will pick it up. See loader.ts for the fall-through logic.
 #
-# All optional variables (timeline, people, existingWiki, edits, relatedWikis)
-# are populated so every `{{#if ...}}` branch in each wiki-type template
-# fires, making the preview demonstrate the richest output the user will see.
+# All optional variables (timeline, people, existingWiki, relatedWikis) are
+# populated so every `{{#if ...}}` branch in each wiki-type template fires,
+# making the preview demonstrate the richest output the user will see.
+# `edits` is retained as a no-op field so the loader's PromptPreviewVars
+# interface keeps a non-empty default; the wiki-type templates dropped the
+# legacy [USER EDITS] block in v0.2.1 so the value never renders.
 #
 # `count` is an integer (wiki-generation.ts: `count: z.coerce.number()`).
 # Quoted because the fixture loader runs js-yaml under FAILSAFE_SCHEMA (SEC-L3)
