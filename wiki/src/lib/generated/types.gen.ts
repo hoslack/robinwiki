@@ -272,6 +272,7 @@ export type ThreadResponseSchema = {
     bouncerMode?: 'auto' | 'review';
     published?: boolean;
     publishedSlug?: string;
+    publishedOrigin?: string;
     collections?: Array<WikiCollectionSchema>;
 };
 
@@ -301,6 +302,7 @@ export type ThreadWithWikiResponseSchema = {
     bouncerMode?: 'auto' | 'review';
     published?: boolean;
     publishedSlug?: string;
+    publishedOrigin?: string;
     collections?: Array<WikiCollectionSchema>;
     wikiContent: string;
 };
@@ -332,6 +334,7 @@ export type ThreadListResponseSchema = {
         bouncerMode?: 'auto' | 'review';
         published?: boolean;
         publishedSlug?: string;
+        publishedOrigin?: string;
         collections?: Array<WikiCollectionSchema>;
     }>;
 };
@@ -362,6 +365,7 @@ export type WikiDetailResponseSchema = {
     bouncerMode?: 'auto' | 'review';
     published?: boolean;
     publishedSlug?: string;
+    publishedOrigin?: string;
     collections?: Array<WikiCollectionSchema>;
     wikiContent: string;
     fragments: Array<{
@@ -392,6 +396,7 @@ export type BouncerModeResponseSchema = {
 export type PublishWikiResponseSchema = {
     published: boolean;
     publishedSlug: string;
+    publishedOrigin: string;
     publishedAt: string;
     regenerate: boolean;
 };

@@ -303,9 +303,7 @@ export default function WikiDetailPage() {
       bouncerMode={wiki.bouncerMode as 'auto' | 'review' | undefined}
       published={wiki.published === true}
       publishedSlug={wiki.publishedSlug ?? null}
-      // Generated types lag the publish-origin column (#stream-I Phase 4);
-      // cast through unknown until openapi:generate gets re-run.
-      publishedOrigin={(wiki as unknown as { publishedOrigin?: string | null }).publishedOrigin ?? null}
+      publishedOrigin={wiki.publishedOrigin ?? null}
       collections={wiki.collections ?? []}
       infobox={{ kind: "simple", typeLabel, lastUpdated: wiki.updatedAt, showSettings: true }}
       renderCustomInfobox={
