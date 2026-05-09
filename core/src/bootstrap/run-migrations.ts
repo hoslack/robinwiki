@@ -140,18 +140,17 @@ export async function runMigrations(): Promise<void> {
       log.info({ tag: entry.tag, appliedAt: new Date().toISOString() }, 'migration applied')
     }
     log.info({ count: newCount }, `${newCount} migration(s) applied`)
-
-    // Newly applied → update the journal SHA in migrations_meta so the next
-    // boot's drift check compares against the post-migration disk value.
-    // Tolerated to fail (e.g., migrations_meta itself missing on a partial
-    // 0003 apply) — the dedicated drift check that runs after this will
-    // surface the mismatch.
-    try {
-      await updateJournalSha()
-    } catch (err) {
-      log.warn({ err }, 'failed to refresh migrations_meta journal sha')
-    }
   } else {
     log.info('no pending migrations')
+  }
+
+  // Always sync the journal SHA after a successful migration run so that
+  // journal reformats or reordered entries (where Drizzle still sees "no
+  // pending") don't leave a stale SHA in migrations_meta and cause the
+  // boot-time drift check to fatal in production.
+  try {
+    await updateJournalSha()
+  } catch (err) {
+    log.warn({ err }, 'failed to refresh migrations_meta journal sha')
   }
 }
